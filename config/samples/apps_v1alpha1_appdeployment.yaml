@@ -1,0 +1,8 @@
+apiVersion: apps.lyrid.io/v1alpha1
+kind: AppDeployment
+metadata:
+  name: my-app
+  namespace: default
+spec:
+  image: hello-world:latest
+  replicas: 2
