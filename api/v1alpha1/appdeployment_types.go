@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,9 +31,14 @@ type AppDeploymentSpec struct {
 
 	// Foo is an example field of AppDeployment. Edit appdeployment_types.go to remove/update
 	// Image is the Docker image to deploy
-	Image string `json:"image,omitempty"`
+	Image string `json:"image"`
 	// Replicas defines the number of replicas
-	Replicas int32 `json:"replicas,omitempty"`
+	Replicas     int32                       `json:"replicas"`
+	BearerToken  string                      `json:"bearerToken"`
+	RevisionId   string                      `json:"revisionId,omitempty"`
+	Ports        []corev1.ContainerPort      `json:"ports,omitempty"`
+	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
+	VolumeMounts []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
 }
 
 // AppDeploymentStatus defines the observed state of AppDeployment

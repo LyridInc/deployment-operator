@@ -23,8 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	appsv1alpha1 "github.com/azhry/lyrid-operator/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -52,10 +54,26 @@ type AppDeploymentReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log := log.FromContext(ctx)
+
 	appDeploy := &appsv1alpha1.AppDeployment{}
-	err := r.Get(ctx, req.NamespacedName, appDeploy)
-	if err != nil {
+	if err := r.Get(ctx, req.NamespacedName, appDeploy); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("AppDeployment is deleted ->")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, err
+	}
+
+	container := corev1.Container{
+		Name:      appDeploy.Name,
+		Image:     appDeploy.Spec.Image,
+		Resources: appDeploy.Spec.Resources,
+		Ports:     appDeploy.Spec.Ports,
+	}
+
+	if len(appDeploy.Spec.VolumeMounts) > 0 {
+		container.VolumeMounts = appDeploy.Spec.VolumeMounts
 	}
 
 	dep := &appsv1.Deployment{
@@ -74,10 +92,7 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
-						{
-							Name:  appDeploy.Name,
-							Image: appDeploy.Spec.Image, // Use the image from the CR
-						},
+						container,
 					},
 				},
 			},
@@ -89,7 +104,7 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	found := &appsv1.Deployment{}
-	err = r.Get(ctx, types.NamespacedName{Name: dep.Name, Namespace: dep.Namespace}, found)
+	err := r.Get(ctx, types.NamespacedName{Name: dep.Name, Namespace: dep.Namespace}, found)
 	if err != nil {
 		// If the Deployment doesn't exist, create it
 		err = r.Create(ctx, dep)
@@ -106,6 +121,8 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				return ctrl.Result{}, err
 			}
 		}
+
+		// TODO: also do changes for another fields
 	}
 
 	return ctrl.Result{}, nil

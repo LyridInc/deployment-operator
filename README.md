@@ -6,6 +6,31 @@
 
 ## Getting Started
 
+### Usage
+```yaml
+apiVersion: apps.lyrid.io/v1alpha1
+kind: AppDeployment
+metadata:
+  name: swift-web-app
+  namespace: lyrid-e7613fd3-8ec2-4ea3-9c3f-81297dca805c
+spec:
+  revisionId: test-revision
+  bearerToken: this-is-jwt-token
+  image: harbor.apsoutheast1.lyr.id/azhary/swift-web-app:2024-10-04
+  replicas: 1
+  ports:
+    - name: http
+      containerPort: 3000
+      protocol: TCP
+  resources:
+    requests:
+      memory: 129Mi
+      cpu: 101m
+    limits:
+      memory: 513Mi
+      cpu: 501m
+```
+
 ### Prerequisites
 - go version v1.21.0+
 - docker version 17.03+.

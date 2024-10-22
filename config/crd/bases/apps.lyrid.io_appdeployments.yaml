@@ -39,15 +39,61 @@ spec:
           spec:
             description: AppDeploymentSpec defines the desired state of AppDeployment
             properties:
+              revisionId:
+                type: string
+              bearerToken:
+                type: string
               image:
-                description: |-
-                  Foo is an example field of AppDeployment. Edit appdeployment_types.go to remove/update
-                  Image is the Docker image to deploy
                 type: string
               replicas:
                 description: Replicas defines the number of replicas
                 format: int32
                 type: integer
+              ports:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    containerPort:
+                      format: int32
+                      type: integer
+                    protocol:
+                      type: string
+                      enum:
+                        - TCP
+                        - UDP
+              resources:
+                type: object
+                properties:
+                  requests:
+                    type: object
+                    properties:
+                      cpu:
+                        type: string
+                      memory:
+                        type: string
+                  limits:
+                    type: object
+                    properties:
+                      cpu:
+                        type: string
+                      memory:
+                        type: string
+              volumeMounts:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    mountPath:
+                      type: string
+            required:
+              - bearerToken
+              - image
+              - replicas
             type: object
           status:
             description: AppDeploymentStatus defines the observed state of AppDeployment
