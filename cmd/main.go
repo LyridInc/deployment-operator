@@ -19,6 +19,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"log"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -36,6 +37,7 @@ import (
 
 	appsv1alpha1 "github.com/azhry/lyrid-operator/api/v1alpha1"
 	"github.com/azhry/lyrid-operator/internal/controller"
+	"github.com/joho/godotenv"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -52,6 +54,10 @@ func init() {
 }
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
@@ -127,6 +133,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AppDeployment")
+		os.Exit(1)
+	}
+	if err = (&controller.RevisionReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Revision")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

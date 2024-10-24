@@ -18,14 +18,18 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	appsv1alpha1 "github.com/azhry/lyrid-operator/api/v1alpha1"
+	"github.com/azhry/lyrid-operator/pkg/helpers"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -55,6 +59,22 @@ type AppDeploymentReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
+
+	accountSecret := &corev1.Secret{}
+	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: "lyrid.secretkey", Namespace: req.Namespace}, accountSecret); err != nil {
+		if errors.IsNotFound(err) {
+			fmt.Printf("lyrid.secretkey secret is not found in namespace %s\n", req.Namespace)
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	resp, err := helpers.Authenticate(string(accountSecret.Data["key"]), string(accountSecret.Data["secret"]))
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	fmt.Println(resp.Token)
 
 	appDeploy := &appsv1alpha1.AppDeployment{}
 	if err := r.Get(ctx, req.NamespacedName, appDeploy); err != nil {
@@ -104,8 +124,7 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	found := &appsv1.Deployment{}
-	err := r.Get(ctx, types.NamespacedName{Name: dep.Name, Namespace: dep.Namespace}, found)
-	if err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: dep.Name, Namespace: dep.Namespace}, found); err != nil {
 		// If the Deployment doesn't exist, create it
 		err = r.Create(ctx, dep)
 		if err != nil {
@@ -132,5 +151,22 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *AppDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1alpha1.AppDeployment{}).
+		WithEventFilter(predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				// Custom logic before creating an AppDeployment
+				fmt.Println("create event")
+				return true
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				// Custom logic before updating an AppDeployment
+				fmt.Println("update event")
+				return true
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				// Custom logic before deleting an AppDeployment
+				fmt.Println("delete event")
+				return true
+			},
+		}).
 		Complete(r)
 }

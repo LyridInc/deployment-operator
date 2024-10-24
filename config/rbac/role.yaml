@@ -30,3 +30,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - revisions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - revisions/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - revisions/status
+  verbs:
+  - get
+  - patch
+  - update

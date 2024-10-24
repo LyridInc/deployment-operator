@@ -2,7 +2,7 @@ apiVersion: apps.lyrid.io/v1alpha1
 kind: AppDeployment
 metadata:
   name: swift-web-app
-  namespace: lyrid-e7613fd3-8ec2-4ea3-9c3f-81297dca805c
+  namespace: lyrid-9cc8b789-e6df-434a-afbb-371e8280ec1a
 spec:
   revisionId: test-revision
   bearerToken: this-is-jwt-token
