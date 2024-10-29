@@ -2,6 +2,7 @@ package dto
 
 type AuthResponseDTO struct {
 	UserID    string `json:"userId"`
+	AccountID string `json:"accountId"`
 	AccessKey string `json:"accessKey"`
 	Token     string `json:"token"`
 	IsValid   bool   `json:"isValid"`

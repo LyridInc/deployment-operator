@@ -29,13 +29,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	appsv1alpha1 "github.com/azhry/lyrid-operator/api/v1alpha1"
-	"github.com/azhry/lyrid-operator/pkg/helpers"
+	"github.com/azhry/lyrid-operator/pkg/lyra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // AppDeploymentReconciler reconciles a AppDeployment object
@@ -69,13 +70,6 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	resp, err := helpers.Authenticate(string(accountSecret.Data["key"]), string(accountSecret.Data["secret"]))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	fmt.Println(resp.Token)
-
 	appDeploy := &appsv1alpha1.AppDeployment{}
 	if err := r.Get(ctx, req.NamespacedName, appDeploy); err != nil {
 		if errors.IsNotFound(err) {
@@ -85,6 +79,44 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	lyraClient := lyra.NewLyraClient()
+	_, err := lyraClient.SyncApp(*appDeploy, string(accountSecret.Data["key"]), string(accountSecret.Data["secret"]))
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	handleAppDeploymentChanges(ctx, *appDeploy, r)
+
+	handleRevisionChanges(ctx, *appDeploy, r)
+
+	return ctrl.Result{}, nil
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *AppDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&appsv1alpha1.AppDeployment{}).
+		WithEventFilter(predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				// Custom logic before creating an AppDeployment
+				fmt.Println("create event")
+				return true
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				// Custom logic before updating an AppDeployment
+				fmt.Println("update event")
+				return true
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				// Custom logic before deleting an AppDeployment
+				fmt.Println("delete event")
+				return true
+			},
+		}).
+		Complete(r)
+}
+
+func handleAppDeploymentChanges(ctx context.Context, appDeploy appsv1alpha1.AppDeployment, r *AppDeploymentReconciler) (ctrl.Result, error) {
 	container := corev1.Container{
 		Name:      appDeploy.Name,
 		Image:     appDeploy.Spec.Image,
@@ -119,7 +151,7 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(appDeploy, dep, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(&appDeploy, dep, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -143,30 +175,56 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		// TODO: also do changes for another fields
 	}
-
 	return ctrl.Result{}, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *AppDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&appsv1alpha1.AppDeployment{}).
-		WithEventFilter(predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				// Custom logic before creating an AppDeployment
-				fmt.Println("create event")
-				return true
+func handleRevisionChanges(ctx context.Context, appDeploy appsv1alpha1.AppDeployment, r *AppDeploymentReconciler) (ctrl.Result, error) {
+	log := log.FromContext(ctx)
+	var spec = appDeploy.Spec
+	var newRevision *unstructured.Unstructured
+	if appDeploy.Spec.RevisionId == "" {
+		newRevision = &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "apps.lyrid.io/v1alpha1",
+				"kind":       "Revision",
+				"metadata": map[string]interface{}{
+					"name":      "new-revision",
+					"namespace": appDeploy.Namespace,
+					"labels": map[string]interface{}{
+						"app.kubernetes.io/name":       "lyrid-operator",
+						"app.kubernetes.io/managed-by": "lyrid",
+					},
+				},
+				"spec": map[string]interface{}{
+					"image":        spec.Image,
+					"ports":        spec.Ports,
+					"replicas":     spec.Replicas,
+					"resources":    spec.Resources,
+					"moduleId":     "module-id",
+					"volumeMounts": spec.VolumeMounts,
+				},
 			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				// Custom logic before updating an AppDeployment
-				fmt.Println("update event")
-				return true
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				// Custom logic before deleting an AppDeployment
-				fmt.Println("delete event")
-				return true
-			},
-		}).
-		Complete(r)
+		}
+	}
+
+	if err := controllerutil.SetControllerReference(&appDeploy, newRevision, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	existing := &unstructured.Unstructured{}
+	existing.SetGroupVersionKind(newRevision.GroupVersionKind())
+	if err := r.Client.Get(ctx, types.NamespacedName{Name: "new-revision", Namespace: appDeploy.Namespace}, existing); errors.IsNotFound(err) {
+		// Create the instance if it does not exist
+		if err := r.Client.Create(ctx, newRevision); err != nil {
+			log.Error(err, "Failed to create new new-revision instance")
+			return ctrl.Result{}, err
+		}
+		log.Info("Created new new-revision instance")
+	} else if err != nil {
+		return ctrl.Result{}, err
+	} else {
+		log.Info("new-revision instance already exists")
+	}
+
+	return ctrl.Result{}, nil
 }
