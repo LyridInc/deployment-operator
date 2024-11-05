@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"os"
 
+	lyrmodel "github.com/LyridInc/go-sdk/model"
 	appsv1alpha1 "github.com/azhry/lyrid-operator/api/v1alpha1"
 	"github.com/azhry/lyrid-operator/pkg/dto"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type LyraClient struct {
@@ -101,20 +101,39 @@ func (c *LyraClient) GetCachedTokenByNamespace(namespace string) *string {
 }
 
 func (c *LyraClient) SyncApp(appDeployment appsv1alpha1.AppDeployment, accessKey, accessSecret string) (interface{}, error) {
-	requestBody := struct {
-		AppName      string                      `json:"app_name"`
-		AppNamespace string                      `json:"app_namespace"`
-		Replicas     int32                       `json:"replicas"`
-		Ports        []corev1.ContainerPort      `json:"ports"`
-		Resources    corev1.ResourceRequirements `json:"resources"`
-		VolumeMounts []corev1.VolumeMount        `json:"volume_mounts"`
-	}{
+	resources := lyrmodel.SyncAppResources{
+		Limits: lyrmodel.SyncAppResource{
+			Cpu:    appDeployment.Spec.Resources.Limits.Cpu().String(),
+			Memory: appDeployment.Spec.Resources.Limits.Memory().String(),
+		},
+		Requests: lyrmodel.SyncAppResource{
+			Cpu:    appDeployment.Spec.Resources.Requests.Cpu().String(),
+			Memory: appDeployment.Spec.Resources.Requests.Memory().String(),
+		},
+	}
+
+	ports := []lyrmodel.ContainerPort{}
+	for _, p := range appDeployment.Spec.Ports {
+		ports = append(ports, lyrmodel.ContainerPort{
+			Name:          p.Name,
+			ContainerPort: p.ContainerPort,
+		})
+	}
+
+	volumeMount := lyrmodel.VolumeMount{}
+	if len(appDeployment.Spec.VolumeMounts) > 0 {
+		vmnt := appDeployment.Spec.VolumeMounts[0]
+		volumeMount.Name = vmnt.Name
+		volumeMount.MountPath = vmnt.MountPath
+	}
+
+	requestBody := lyrmodel.SyncAppRequest{
 		AppName:      appDeployment.Name,
 		AppNamespace: appDeployment.Namespace,
 		Replicas:     appDeployment.Spec.Replicas,
-		Ports:        appDeployment.Spec.Ports,
-		Resources:    appDeployment.Spec.Resources,
-		VolumeMounts: appDeployment.Spec.VolumeMounts,
+		Ports:        ports,
+		Resources:    resources,
+		VolumeMounts: volumeMount,
 	}
 
 	jsonData, err := json.Marshal(requestBody)
