@@ -205,9 +205,14 @@ func handleRevisionChanges(ctx context.Context, appDeploy appsv1alpha1.AppDeploy
 				},
 			},
 		}
+	} else {
+		// TODO
 	}
 
-	if err := controllerutil.SetControllerReference(&appDeploy, newRevision, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(
+		&appDeploy,
+		newRevision,
+		r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
 
