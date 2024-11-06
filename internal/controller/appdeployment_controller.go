@@ -33,10 +33,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	lyrmodel "github.com/LyridInc/go-sdk/model"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // AppDeploymentReconciler reconciles a AppDeployment object
@@ -79,15 +79,17 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	lyraClient := lyra.NewLyraClient()
-	_, err := lyraClient.SyncApp(*appDeploy, string(accountSecret.Data["key"]), string(accountSecret.Data["secret"]))
+	lyraClient := lyra.NewLyraClient(r.Client, req.Namespace)
+	syncAppResponse, err := lyraClient.SyncApp(*appDeploy, string(accountSecret.Data["key"]), string(accountSecret.Data["secret"]))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	handleAppDeploymentChanges(ctx, *appDeploy, r)
+	handleAppDeploymentChanges(ctx, r, *appDeploy)
 
-	handleRevisionChanges(ctx, *appDeploy, r)
+	if syncAppResponse.ModuleRevision.ID != "" {
+		handleRevisionChanges(ctx, r, *appDeploy, *syncAppResponse)
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -116,7 +118,7 @@ func (r *AppDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func handleAppDeploymentChanges(ctx context.Context, appDeploy appsv1alpha1.AppDeployment, r *AppDeploymentReconciler) (ctrl.Result, error) {
+func handleAppDeploymentChanges(ctx context.Context, r *AppDeploymentReconciler, appDeploy appsv1alpha1.AppDeployment) (ctrl.Result, error) {
 	container := corev1.Container{
 		Name:      appDeploy.Name,
 		Image:     appDeploy.Spec.Image,
@@ -178,36 +180,21 @@ func handleAppDeploymentChanges(ctx context.Context, appDeploy appsv1alpha1.AppD
 	return ctrl.Result{}, nil
 }
 
-func handleRevisionChanges(ctx context.Context, appDeploy appsv1alpha1.AppDeployment, r *AppDeploymentReconciler) (ctrl.Result, error) {
+func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appDeploy appsv1alpha1.AppDeployment, syncApp lyrmodel.SyncAppResponse) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 	var spec = appDeploy.Spec
-	var newRevision *unstructured.Unstructured
-	if appDeploy.Spec.RevisionId == "" {
-		newRevision = &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "apps.lyrid.io/v1alpha1",
-				"kind":       "Revision",
-				"metadata": map[string]interface{}{
-					"name":      "new-revision",
-					"namespace": appDeploy.Namespace,
-					"labels": map[string]interface{}{
-						"app.kubernetes.io/name":       "lyrid-operator",
-						"app.kubernetes.io/managed-by": "lyrid",
-					},
-				},
-				"spec": map[string]interface{}{
-					"image":        spec.Image,
-					"ports":        spec.Ports,
-					"replicas":     spec.Replicas,
-					"resources":    spec.Resources,
-					"moduleId":     "module-id",
-					"volumeMounts": spec.VolumeMounts,
-				},
-			},
-		}
-	} else {
-		// TODO
+	newRevision := &appsv1alpha1.Revision{
+		Spec: appsv1alpha1.RevisionSpec{
+			Image:        spec.Image,
+			ModuleId:     syncApp.Module.ID,
+			Ports:        spec.Ports,
+			Replicas:     spec.Replicas,
+			Resources:    spec.Resources,
+			VolumeMounts: spec.VolumeMounts,
+		},
 	}
+	newRevision.SetName(syncApp.ModuleRevision.Title)
+	newRevision.SetNamespace(appDeploy.Namespace)
 
 	if err := controllerutil.SetControllerReference(
 		&appDeploy,
@@ -216,19 +203,29 @@ func handleRevisionChanges(ctx context.Context, appDeploy appsv1alpha1.AppDeploy
 		return ctrl.Result{}, err
 	}
 
-	existing := &unstructured.Unstructured{}
-	existing.SetGroupVersionKind(newRevision.GroupVersionKind())
-	if err := r.Client.Get(ctx, types.NamespacedName{Name: "new-revision", Namespace: appDeploy.Namespace}, existing); errors.IsNotFound(err) {
-		// Create the instance if it does not exist
-		if err := r.Client.Create(ctx, newRevision); err != nil {
-			log.Error(err, "Failed to create new new-revision instance")
+	// Create the instance if it does not exist
+	if err := r.Client.Create(ctx, newRevision); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			log.Error(err, "Failed to create new Revision instance")
 			return ctrl.Result{}, err
 		}
-		log.Info("Created new new-revision instance")
-	} else if err != nil {
+		log.Error(err, "Failed to create new Revision instance")
 		return ctrl.Result{}, err
-	} else {
-		log.Info("new-revision instance already exists")
+	}
+
+	newRevision.Status.Phase = "Active"
+	newRevision.Status.Message = "Revision is up and running"
+	newRevision.Status.Conditions = []metav1.Condition{
+		{
+			LastTransitionTime: metav1.Now(),
+			Message:            newRevision.Status.Message,
+			Type:               newRevision.Status.Phase,
+			Status:             "true",
+		},
+	}
+	if err := r.Status().Update(ctx, newRevision); err != nil {
+		log.Error(err, "Failed to update status")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,14 +29,22 @@ type RevisionSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Revision. Edit revision_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Image        string                      `json:"image"`
+	ModuleId     string                      `json:"moduleId"`
+	Ports        []corev1.ContainerPort      `json:"ports,omitempty"`
+	Replicas     int32                       `json:"replicas"`
+	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
+	VolumeMounts []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
 }
 
 // RevisionStatus defines the observed state of Revision
 type RevisionStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	Phase      string             `json:"phase"`
+	Message    string             `json:"message,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -190,10 +190,35 @@ spec:
             - replicas
             type: object
           status:
-            description: RevisionStatus defines the observed state of Revision
             type: object
+            properties:
+              phase:
+                type: string
+              message:
+                type: string
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
         type: object
     served: true
     storage: true
     subresources:
       status: {}
+    additionalPrinterColumns:
+      - name: Phase
+        type: string
+        jsonPath: .status.phase
+        description: "The current phase of the revision"
