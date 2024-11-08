@@ -39,6 +39,8 @@ spec:
           spec:
             description: AppDeploymentSpec defines the desired state of AppDeployment
             properties:
+              currentRevisionId:
+                type: string
               bearerToken:
                 type: string
               image:
@@ -143,8 +145,6 @@ spec:
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     type: object
                 type: object
-              revisionId:
-                type: string
               volumeMounts:
                 items:
                   description: VolumeMount describes a mounting of a Volume within

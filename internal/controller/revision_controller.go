@@ -56,6 +56,20 @@ func (r *RevisionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RevisionReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &appsv1alpha1.Revision{}, ".metadata.ownerReferences", func(rawObj client.Object) []string {
+		// Grab the Revision object, then extract its owner references
+		revision := rawObj.(*appsv1alpha1.Revision)
+		ownerRefs := revision.GetOwnerReferences()
+
+		// Collect and return the UIDs of all owners
+		ownerUIDs := make([]string, len(ownerRefs))
+		for i, owner := range ownerRefs {
+			ownerUIDs[i] = string(owner.UID)
+		}
+		return ownerUIDs
+	}); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1alpha1.Revision{}).
 		Complete(r)

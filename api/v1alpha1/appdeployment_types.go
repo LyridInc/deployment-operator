@@ -30,15 +30,13 @@ type AppDeploymentSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of AppDeployment. Edit appdeployment_types.go to remove/update
-	// Image is the Docker image to deploy
-	Image string `json:"image"`
-	// Replicas defines the number of replicas
-	Replicas     int32                       `json:"replicas"`
-	BearerToken  string                      `json:"bearerToken"`
-	RevisionId   string                      `json:"revisionId,omitempty"`
-	Ports        []corev1.ContainerPort      `json:"ports,omitempty"`
-	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
-	VolumeMounts []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
+	Image             string                      `json:"image"`
+	Replicas          int32                       `json:"replicas"`
+	BearerToken       string                      `json:"bearerToken"`
+	CurrentRevisionId string                      `json:"currentRevisionId,omitempty"`
+	Ports             []corev1.ContainerPort      `json:"ports,omitempty"`
+	Resources         corev1.ResourceRequirements `json:"resources,omitempty"`
+	VolumeMounts      []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
 }
 
 // AppDeploymentStatus defines the observed state of AppDeployment

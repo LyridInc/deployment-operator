@@ -142,12 +142,13 @@ func (c *LyraClient) SyncApp(appDeployment appsv1alpha1.AppDeployment, accessKey
 	}
 
 	requestBody := lyrmodel.SyncAppRequest{
-		AppName:      appDeployment.Name,
-		AppNamespace: appDeployment.Namespace,
-		Replicas:     appDeployment.Spec.Replicas,
-		Ports:        ports,
-		Resources:    resources,
-		VolumeMounts: volumeMount,
+		AppName:          appDeployment.Name,
+		AppNamespace:     appDeployment.Namespace,
+		Replicas:         appDeployment.Spec.Replicas,
+		Ports:            ports,
+		Resources:        resources,
+		VolumeMounts:     volumeMount,
+		ActiveRevisionId: appDeployment.Spec.CurrentRevisionId,
 	}
 
 	jsonData, err := json.Marshal(requestBody)

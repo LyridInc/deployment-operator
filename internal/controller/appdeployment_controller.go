@@ -22,6 +22,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -42,7 +44,8 @@ import (
 // AppDeploymentReconciler reconciles a AppDeployment object
 type AppDeploymentReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme    *runtime.Scheme
+	k8sClient *kubernetes.Clientset
 }
 
 //+kubebuilder:rbac:groups=apps.lyrid.io,resources=appdeployments,verbs=get;list;watch;create;update;patch;delete
@@ -79,16 +82,50 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	isCreateNewRevision, _ := handleAppDeploymentChanges(ctx, r, *appDeploy)
+	if isCreateNewRevision {
+		appDeploy.Spec.CurrentRevisionId = "" // empty the revision id so that it will trigger new revision creation
+	}
+
 	lyraClient := lyra.NewLyraClient(r.Client, req.Namespace)
 	syncAppResponse, err := lyraClient.SyncApp(*appDeploy, string(accountSecret.Data["key"]), string(accountSecret.Data["secret"]))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	handleAppDeploymentChanges(ctx, r, *appDeploy)
-
 	if syncAppResponse.ModuleRevision.ID != "" {
 		handleRevisionChanges(ctx, r, *appDeploy, *syncAppResponse)
+	}
+
+	if isCreateNewRevision {
+		// docker
+		// deploymentEndpoint := req.Name + "." + req.Namespace + ".svc.cluster.local"
+		service := &corev1.Service{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Service",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      appDeploy.Name,
+				Namespace: appDeploy.Namespace,
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Name:       "http",
+						Protocol:   corev1.ProtocolTCP,
+						Port:       80,
+						TargetPort: intstr.FromInt(80),
+					},
+				},
+				Selector: map[string]string{
+					"app": syncAppResponse.FunctionCode.ID,
+				},
+				Type: "ClusterIP",
+			},
+		}
+
+		r.k8sClient.CoreV1().Services(appDeploy.Namespace).Create(ctx, service, metav1.CreateOptions{})
 	}
 
 	return ctrl.Result{}, nil
@@ -118,7 +155,7 @@ func (r *AppDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func handleAppDeploymentChanges(ctx context.Context, r *AppDeploymentReconciler, appDeploy appsv1alpha1.AppDeployment) (ctrl.Result, error) {
+func handleAppDeploymentChanges(ctx context.Context, r *AppDeploymentReconciler, appDeploy appsv1alpha1.AppDeployment) (bool, error) {
 	container := corev1.Container{
 		Name:      appDeploy.Name,
 		Image:     appDeploy.Spec.Image,
@@ -154,78 +191,113 @@ func handleAppDeploymentChanges(ctx context.Context, r *AppDeploymentReconciler,
 	}
 
 	if err := controllerutil.SetControllerReference(&appDeploy, dep, r.Scheme); err != nil {
-		return ctrl.Result{}, err
+		return false, err
 	}
 
+	var createNewRevision bool
 	found := &appsv1.Deployment{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dep.Name, Namespace: dep.Namespace}, found); err != nil {
 		// If the Deployment doesn't exist, create it
 		err = r.Create(ctx, dep)
 		if err != nil {
-			return ctrl.Result{}, err
+			return createNewRevision, err
 		}
+		createNewRevision = true
 	} else {
 		// Update the existing Deployment if necessary
 		if *found.Spec.Replicas != appDeploy.Spec.Replicas || found.Spec.Template.Spec.Containers[0].Image != appDeploy.Spec.Image {
 			found.Spec.Replicas = &appDeploy.Spec.Replicas
 			found.Spec.Template.Spec.Containers[0].Image = appDeploy.Spec.Image
+
+			// TODO: also do changes for another fields
+
 			err = r.Update(ctx, found)
 			if err != nil {
-				return ctrl.Result{}, err
+				return createNewRevision, err
 			}
+
+			// TODO: empty the revision so that whenever a change occured, it will create a new revision
+			createNewRevision = true
 		}
 
-		// TODO: also do changes for another fields
 	}
-	return ctrl.Result{}, nil
+	return createNewRevision, nil
 }
 
 func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appDeploy appsv1alpha1.AppDeployment, syncApp lyrmodel.SyncAppResponse) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	var spec = appDeploy.Spec
-	newRevision := &appsv1alpha1.Revision{
-		Spec: appsv1alpha1.RevisionSpec{
-			Image:        spec.Image,
-			ModuleId:     syncApp.Module.ID,
-			Ports:        spec.Ports,
-			Replicas:     spec.Replicas,
-			Resources:    spec.Resources,
-			VolumeMounts: spec.VolumeMounts,
-		},
-	}
-	newRevision.SetName(syncApp.ModuleRevision.Title)
-	newRevision.SetNamespace(appDeploy.Namespace)
 
-	if err := controllerutil.SetControllerReference(
-		&appDeploy,
-		newRevision,
-		r.Scheme); err != nil {
-		return ctrl.Result{}, err
-	}
+	fmt.Println("Current:", appDeploy.Spec.CurrentRevisionId)
+	fmt.Println("New:", syncApp.ModuleRevision.ID)
 
-	// Create the instance if it does not exist
-	if err := r.Client.Create(ctx, newRevision); err != nil {
-		if !errors.IsAlreadyExists(err) {
+	if appDeploy.Spec.CurrentRevisionId != syncApp.ModuleRevision.ID {
+		appDeploy.Spec.CurrentRevisionId = syncApp.ModuleRevision.ID
+		if err := r.Update(ctx, &appDeploy); err != nil {
+			log.Error(err, "Failed to update current revision id on app deployment")
+			return ctrl.Result{}, err
+		}
+
+		revisionsList := appsv1alpha1.RevisionList{}
+
+		if err := r.Client.List(ctx, &revisionsList, client.InNamespace(appDeploy.GetNamespace()), client.MatchingFields{
+			".metadata.ownerReferences": string(appDeploy.GetUID()),
+		}); err != nil {
+			fmt.Println(fmt.Errorf("failed to list revisions: %w", err))
+		}
+
+		for _, revision := range revisionsList.Items {
+			revision.Status.Phase = "Non-active"
+
+			if err := r.Client.Status().Update(ctx, &revision); err != nil {
+				fmt.Println(fmt.Errorf("failed to update status for revision %s: %w", revision.Name, err))
+			}
+		}
+
+		var spec = appDeploy.Spec
+		newRevision := &appsv1alpha1.Revision{
+			Spec: appsv1alpha1.RevisionSpec{
+				Image:        spec.Image,
+				ModuleId:     syncApp.Module.ID,
+				Ports:        spec.Ports,
+				Replicas:     spec.Replicas,
+				Resources:    spec.Resources,
+				VolumeMounts: spec.VolumeMounts,
+			},
+		}
+		newRevision.SetName(syncApp.ModuleRevision.Title)
+		newRevision.SetNamespace(appDeploy.Namespace)
+
+		if err := controllerutil.SetControllerReference(
+			&appDeploy,
+			newRevision,
+			r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// Create the instance if it does not exist
+		if err := r.Client.Create(ctx, newRevision); err != nil {
+			if !errors.IsAlreadyExists(err) {
+				log.Error(err, "Failed to create new Revision instance")
+				return ctrl.Result{}, err
+			}
 			log.Error(err, "Failed to create new Revision instance")
 			return ctrl.Result{}, err
 		}
-		log.Error(err, "Failed to create new Revision instance")
-		return ctrl.Result{}, err
-	}
 
-	newRevision.Status.Phase = "Active"
-	newRevision.Status.Message = "Revision is up and running"
-	newRevision.Status.Conditions = []metav1.Condition{
-		{
-			LastTransitionTime: metav1.Now(),
-			Message:            newRevision.Status.Message,
-			Type:               newRevision.Status.Phase,
-			Status:             "true",
-		},
-	}
-	if err := r.Status().Update(ctx, newRevision); err != nil {
-		log.Error(err, "Failed to update status")
-		return ctrl.Result{}, err
+		newRevision.Status.Phase = "Active"
+		newRevision.Status.Message = "Revision is up and running"
+		newRevision.Status.Conditions = []metav1.Condition{
+			{
+				LastTransitionTime: metav1.Now(),
+				Message:            newRevision.Status.Message,
+				Type:               newRevision.Status.Phase,
+				Status:             "true",
+			},
+		}
+		if err := r.Status().Update(ctx, newRevision); err != nil {
+			log.Error(err, "Failed to update status")
+			return ctrl.Result{}, err
+		}
 	}
 
 	return ctrl.Result{}, nil
