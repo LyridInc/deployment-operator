@@ -45,7 +45,7 @@ import (
 type AppDeploymentReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
-	k8sClient *kubernetes.Clientset
+	K8sClient *kubernetes.Clientset
 }
 
 //+kubebuilder:rbac:groups=apps.lyrid.io,resources=appdeployments,verbs=get;list;watch;create;update;patch;delete
@@ -100,6 +100,18 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if isCreateNewRevision {
 		// docker
 		// deploymentEndpoint := req.Name + "." + req.Namespace + ".svc.cluster.local"
+
+		ports := []corev1.ServicePort{}
+		for _, p := range appDeploy.Spec.Ports {
+			fmt.Println("container port:", p.ContainerPort)
+			ports = append(ports, corev1.ServicePort{
+				Name:       p.Name,
+				Protocol:   p.Protocol,
+				Port:       80,
+				TargetPort: intstr.FromInt(int(p.ContainerPort)),
+			})
+		}
+
 		service := &corev1.Service{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Service",
@@ -110,22 +122,27 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				Namespace: appDeploy.Namespace,
 			},
 			Spec: corev1.ServiceSpec{
-				Ports: []corev1.ServicePort{
-					{
-						Name:       "http",
-						Protocol:   corev1.ProtocolTCP,
-						Port:       80,
-						TargetPort: intstr.FromInt(80),
-					},
-				},
+				Ports: ports,
 				Selector: map[string]string{
-					"app": syncAppResponse.FunctionCode.ID,
+					"app": appDeploy.Name,
 				},
 				Type: "ClusterIP",
 			},
 		}
 
-		r.k8sClient.CoreV1().Services(appDeploy.Namespace).Create(ctx, service, metav1.CreateOptions{})
+		existingService, err := r.K8sClient.CoreV1().Services(appDeploy.Namespace).Get(ctx, service.Name, metav1.GetOptions{})
+		if err == nil && existingService != nil {
+			if _, err := r.K8sClient.CoreV1().Services(appDeploy.Namespace).Update(ctx, service, metav1.UpdateOptions{}); err != nil {
+				fmt.Println(err)
+				return ctrl.Result{}, err
+			}
+		} else {
+			if _, err := r.K8sClient.CoreV1().Services(appDeploy.Namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
+				fmt.Println(err)
+				return ctrl.Result{}, err
+			}
+		}
+
 	}
 
 	return ctrl.Result{}, nil
