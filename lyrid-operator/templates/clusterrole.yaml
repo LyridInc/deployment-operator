@@ -1,0 +1,11 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "lyrid-operator.fullname" . }}-role
+rules:
+  - apiGroups: ["apps.lyrid.io"]
+    resources: ["revisions", "appdeployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["secrets", "deployments", "configmaps"]
+    verbs: ["get", "list", "watch"]

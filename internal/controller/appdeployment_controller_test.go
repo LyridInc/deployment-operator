@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	appsv1alpha1 "github.com/azhry/lyrid-operator/api/v1alpha1"
+	appsv1alpha1 "github.com/LyridInc/lyrid-operator/api/v1alpha1"
 )
 
 var _ = Describe("AppDeployment Controller", func() {

@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	appsv1alpha1 "github.com/azhry/lyrid-operator/api/v1alpha1"
-	"github.com/azhry/lyrid-operator/pkg/lyra"
+	appsv1alpha1 "github.com/LyridInc/lyrid-operator/api/v1alpha1"
+	"github.com/LyridInc/lyrid-operator/pkg/lyra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -98,12 +99,8 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if isCreateNewRevision {
-		// docker
-		// deploymentEndpoint := req.Name + "." + req.Namespace + ".svc.cluster.local"
-
 		ports := []corev1.ServicePort{}
 		for _, p := range appDeploy.Spec.Ports {
-			fmt.Println("container port:", p.ContainerPort)
 			ports = append(ports, corev1.ServicePort{
 				Name:       p.Name,
 				Protocol:   p.Protocol,
@@ -260,6 +257,18 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 			".metadata.ownerReferences": string(appDeploy.GetUID()),
 		}); err != nil {
 			fmt.Println(fmt.Errorf("failed to list revisions: %w", err))
+		}
+
+		revisionsCount := len(revisionsList.Items)
+		if revisionsCount >= 3 {
+			sort.Slice(revisionsList.Items, func(i, j int) bool {
+				return revisionsList.Items[i].CreationTimestamp.After(revisionsList.Items[j].CreationTimestamp.Time)
+			})
+
+			deletedRevision := revisionsList.Items[revisionsCount-1]
+			if err := r.Client.Delete(ctx, &deletedRevision); err != nil {
+				fmt.Println(fmt.Errorf("failed to delete revision %s: %w", deletedRevision.Name, err))
+			}
 		}
 
 		for _, revision := range revisionsList.Items {

@@ -36,8 +36,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	appsv1alpha1 "github.com/azhry/lyrid-operator/api/v1alpha1"
-	"github.com/azhry/lyrid-operator/internal/controller"
+	appsv1alpha1 "github.com/LyridInc/lyrid-operator/api/v1alpha1"
+	"github.com/LyridInc/lyrid-operator/internal/controller"
 	"github.com/joho/godotenv"
 	//+kubebuilder:scaffold:imports
 )

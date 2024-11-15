@@ -10,8 +10,8 @@ import (
 	"os"
 
 	lyrmodel "github.com/LyridInc/go-sdk/model"
-	appsv1alpha1 "github.com/azhry/lyrid-operator/api/v1alpha1"
-	"github.com/azhry/lyrid-operator/pkg/dto"
+	appsv1alpha1 "github.com/LyridInc/lyrid-operator/api/v1alpha1"
+	"github.com/LyridInc/lyrid-operator/pkg/dto"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -142,13 +142,14 @@ func (c *LyraClient) SyncApp(appDeployment appsv1alpha1.AppDeployment, accessKey
 	}
 
 	requestBody := lyrmodel.SyncAppRequest{
-		AppName:          appDeployment.Name,
-		AppNamespace:     appDeployment.Namespace,
-		Replicas:         appDeployment.Spec.Replicas,
-		Ports:            ports,
-		Resources:        resources,
-		VolumeMounts:     volumeMount,
-		ActiveRevisionId: appDeployment.Spec.CurrentRevisionId,
+		AppName:                  appDeployment.Name,
+		AppNamespace:             appDeployment.Namespace,
+		Replicas:                 appDeployment.Spec.Replicas,
+		Ports:                    ports,
+		Resources:                resources,
+		VolumeMounts:             volumeMount,
+		ActiveRevisionId:         appDeployment.Spec.CurrentRevisionId,
+		DeploymentEndpointDomain: os.Getenv("DEPLOYMENT_ENDPOINT"),
 	}
 
 	jsonData, err := json.Marshal(requestBody)
