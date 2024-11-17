@@ -23,6 +23,15 @@ type LyraClient struct {
 	Client     *http.Client
 	Tokens     map[string]string
 	KubeClient client.Client
+	InstanceID string
+}
+
+type VegaConfigMap struct {
+	KubeList map[string]struct {
+		GRPCConnection struct {
+			UInstanceID string `json:"UInstanceID"`
+		} `json:"GRPCConnection"`
+	} `json:"kubeList"`
 }
 
 func NewLyraClient(kubeClient client.Client, namespace string) *LyraClient {
@@ -33,11 +42,26 @@ func NewLyraClient(kubeClient client.Client, namespace string) *LyraClient {
 		}
 		return nil
 	}
+
+	initJSON, exists := vegaConfig.Data["init.json"]
+	if !exists {
+		panic("init.json key not found in ConfigMap")
+	}
+	var vegaConfigData VegaConfigMap
+	if err := json.Unmarshal([]byte(initJSON), &vegaConfigData); err != nil {
+		panic(fmt.Sprintf("Error parsing JSON: %v", err))
+	}
+	kube, exists := vegaConfigData.KubeList["default"]
+	if !exists {
+		panic("Error get kube default: not exist")
+	}
+
 	return &LyraClient{
 		Client:     &http.Client{},
 		BaseURL:    os.Getenv("LYRA_URL"),
 		Tokens:     map[string]string{},
 		KubeClient: kubeClient,
+		InstanceID: kube.GRPCConnection.UInstanceID,
 	}
 }
 
@@ -150,6 +174,7 @@ func (c *LyraClient) SyncApp(appDeployment appsv1alpha1.AppDeployment, accessKey
 		VolumeMounts:             volumeMount,
 		ActiveRevisionId:         appDeployment.Spec.CurrentRevisionId,
 		DeploymentEndpointDomain: os.Getenv("DEPLOYMENT_ENDPOINT"),
+		InstanceID:               "",
 	}
 
 	jsonData, err := json.Marshal(requestBody)

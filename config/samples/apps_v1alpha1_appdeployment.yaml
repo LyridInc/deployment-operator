@@ -1,11 +1,10 @@
 apiVersion: apps.lyrid.io/v1alpha1
 kind: AppDeployment
 metadata:
-  name: swift-web-app
+  name: swift-web-app-no2
   namespace: lyrid-9cc8b789-e6df-434a-afbb-371e8280ec1a
 spec:
-  revisionId: test-revision
-  bearerToken: this-is-jwt-token
+  bearerToken: ""
   image: harbor.apsoutheast1.lyr.id/azhary/swift-web-app:2024-10-04
   replicas: 1
   ports:
