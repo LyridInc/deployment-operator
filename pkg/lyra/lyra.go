@@ -43,12 +43,12 @@ func NewLyraClient(kubeClient client.Client, namespace string) *LyraClient {
 		return nil
 	}
 
-	initJSON, exists := vegaConfig.Data["init.json"]
+	initJson, exists := vegaConfig.Data["init.json"]
 	if !exists {
 		panic("init.json key not found in ConfigMap")
 	}
 	var vegaConfigData VegaConfigMap
-	if err := json.Unmarshal([]byte(initJSON), &vegaConfigData); err != nil {
+	if err := json.Unmarshal([]byte(initJson), &vegaConfigData); err != nil {
 		panic(fmt.Sprintf("Error parsing JSON: %v", err))
 	}
 	kube, exists := vegaConfigData.KubeList["default"]
@@ -174,7 +174,7 @@ func (c *LyraClient) SyncApp(appDeployment appsv1alpha1.AppDeployment, accessKey
 		VolumeMounts:             volumeMount,
 		ActiveRevisionId:         appDeployment.Spec.CurrentRevisionId,
 		DeploymentEndpointDomain: os.Getenv("DEPLOYMENT_ENDPOINT"),
-		InstanceID:               "",
+		InstanceID:               c.InstanceID,
 	}
 
 	jsonData, err := json.Marshal(requestBody)
