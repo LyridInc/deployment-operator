@@ -74,10 +74,20 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	lyraClient := lyra.NewLyraClient(r.Client, req.Namespace)
+
 	appDeploy := &appsv1alpha1.AppDeployment{}
 	if err := r.Get(ctx, req.NamespacedName, appDeploy); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("AppDeployment is deleted ->")
+			appDeploy.Name = req.Name
+			appDeploy.Namespace = req.Namespace
+			deleteAppResponse, err := lyraClient.DeleteApp(*appDeploy, string(accountSecret.Data["key"]), string(accountSecret.Data["secret"]))
+			if err != nil {
+				fmt.Println("Response:", deleteAppResponse)
+				fmt.Println("Error:", err)
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -88,7 +98,6 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		appDeploy.Spec.CurrentRevisionId = "" // empty the revision id so that it will trigger new revision creation
 	}
 
-	lyraClient := lyra.NewLyraClient(r.Client, req.Namespace)
 	syncAppResponse, err := lyraClient.SyncApp(*appDeploy, string(accountSecret.Data["key"]), string(accountSecret.Data["secret"]))
 	if err != nil {
 		return ctrl.Result{}, err

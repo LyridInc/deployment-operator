@@ -183,8 +183,6 @@ func (c *LyraClient) SyncApp(appDeployment appsv1alpha1.AppDeployment, accessKey
 		return nil, err
 	}
 
-	fmt.Println(string(jsonData))
-
 	token := c.GetCachedTokenByNamespace(requestBody.AppNamespace)
 	if token == nil {
 		respToken, err := c.Authenticate(accessKey, accessSecret)
@@ -195,6 +193,48 @@ func (c *LyraClient) SyncApp(appDeployment appsv1alpha1.AppDeployment, accessKey
 	}
 
 	resp, err := c.DoLyraHttpRequest("POST", "/operator/app/sync", *token, jsonData)
+	if err != nil {
+		fmt.Println("Error http request:", err)
+		return nil, err
+	}
+
+	syncAppResponse := lyrmodel.SyncAppResponse{}
+	if err := json.Unmarshal(resp, &syncAppResponse); err != nil {
+		return nil, err
+	}
+
+	return &syncAppResponse, nil
+}
+
+func (c *LyraClient) DeleteApp(appDeployment appsv1alpha1.AppDeployment, accessKey, accessSecret string) (*lyrmodel.SyncAppResponse, error) {
+	requestBody := lyrmodel.SyncAppRequest{
+		AppName:                  appDeployment.Name,
+		AppNamespace:             appDeployment.Namespace,
+		Replicas:                 appDeployment.Spec.Replicas,
+		Ports:                    []lyrmodel.ContainerPort{},
+		Resources:                lyrmodel.SyncAppResources{},
+		VolumeMounts:             lyrmodel.VolumeMount{},
+		ActiveRevisionId:         appDeployment.Spec.CurrentRevisionId,
+		DeploymentEndpointDomain: os.Getenv("DEPLOYMENT_ENDPOINT"),
+		InstanceID:               c.InstanceID,
+	}
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		fmt.Println("Error encoding JSON:", err)
+		return nil, err
+	}
+
+	token := c.GetCachedTokenByNamespace(requestBody.AppNamespace)
+	if token == nil {
+		respToken, err := c.Authenticate(accessKey, accessSecret)
+		if err != nil {
+			return nil, err
+		}
+		token = &respToken.Token
+	}
+
+	resp, err := c.DoLyraHttpRequest("POST", "/operator/app/delete", *token, jsonData)
 	if err != nil {
 		fmt.Println("Error http request:", err)
 		return nil, err
