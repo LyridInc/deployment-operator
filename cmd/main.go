@@ -36,9 +36,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/joho/godotenv"
+
 	appsv1alpha1 "github.com/LyridInc/lyrid-operator/api/v1alpha1"
 	"github.com/LyridInc/lyrid-operator/internal/controller"
-	"github.com/joho/godotenv"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -148,6 +149,41 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Revision")
+		os.Exit(1)
+	}
+	if err = (&controller.AppModuleReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AppModule")
+		os.Exit(1)
+	}
+	if err = (&controller.FunctionReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Function")
+		os.Exit(1)
+	}
+	if err = (&controller.FunctionCodeReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "FunctionCode")
+		os.Exit(1)
+	}
+	if err = (&controller.DeploymentEndpointReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DeploymentEndpoint")
+		os.Exit(1)
+	}
+	if err = (&controller.SubdomainReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Subdomain")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

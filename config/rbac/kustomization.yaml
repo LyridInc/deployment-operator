@@ -20,6 +20,20 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the Project itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- subdomain_editor_role.yaml
+- subdomain_viewer_role.yaml
+- deploymentendpoint_editor_role.yaml
+- deploymentendpoint_viewer_role.yaml
+- functioncode_editor_role.yaml
+- functioncode_viewer_role.yaml
+- function_editor_role.yaml
+- function_viewer_role.yaml
+- appmodule_editor_role.yaml
+- appmodule_viewer_role.yaml
+# For each CRD, "Editor" and "Viewer" roles are scaffolded by
+# default, aiding admins in cluster management. Those roles are
+# not used by the Project itself. You can comment the following lines
+# if you do not want those helpers be installed with your Project.
 - revision_editor_role.yaml
 - revision_viewer_role.yaml
 - appdeployment_editor_role.yaml

@@ -1,0 +1,23 @@
+# permissions for end users to view functioncodes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: lyrid-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: functioncode-viewer-role
+rules:
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - functioncodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - functioncodes/status
+  verbs:
+  - get

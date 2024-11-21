@@ -2,4 +2,9 @@
 resources:
 - apps_v1alpha1_appdeployment.yaml
 - apps_v1alpha1_revision.yaml
+- apps_v1alpha1_appmodule.yaml
+- apps_v1alpha1_function.yaml
+- apps_v1alpha1_functioncode.yaml
+- apps_v1alpha1_deploymentendpoint.yaml
+- apps_v1alpha1_subdomain.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

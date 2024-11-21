@@ -29,4 +29,49 @@ resources:
   kind: Revision
   path: github.com/LyridInc/lyrid-operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: lyrid.io
+  group: apps
+  kind: AppModule
+  path: github.com/LyridInc/lyrid-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: lyrid.io
+  group: apps
+  kind: Function
+  path: github.com/LyridInc/lyrid-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: lyrid.io
+  group: apps
+  kind: FunctionCode
+  path: github.com/LyridInc/lyrid-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: lyrid.io
+  group: apps
+  kind: DeploymentEndpoint
+  path: github.com/LyridInc/lyrid-operator/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: lyrid.io
+  group: apps
+  kind: Subdomain
+  path: github.com/LyridInc/lyrid-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"

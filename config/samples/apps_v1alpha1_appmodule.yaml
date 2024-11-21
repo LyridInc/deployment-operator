@@ -1,0 +1,9 @@
+apiVersion: apps.lyrid.io/v1alpha1
+kind: AppModule
+metadata:
+  labels:
+    app.kubernetes.io/name: lyrid-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: appmodule-sample
+spec:
+  # TODO(user): Add fields here

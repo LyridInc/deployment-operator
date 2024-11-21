@@ -1,0 +1,27 @@
+# permissions for end users to edit functioncodes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: lyrid-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: functioncode-editor-role
+rules:
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - functioncodes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - functioncodes/status
+  verbs:
+  - get

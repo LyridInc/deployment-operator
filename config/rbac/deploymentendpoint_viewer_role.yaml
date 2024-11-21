@@ -1,0 +1,23 @@
+# permissions for end users to view deploymentendpoints.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: lyrid-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: deploymentendpoint-viewer-role
+rules:
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - deploymentendpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - deploymentendpoints/status
+  verbs:
+  - get

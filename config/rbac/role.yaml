@@ -33,6 +33,110 @@ rules:
 - apiGroups:
   - apps.lyrid.io
   resources:
+  - appmodules
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - appmodules/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - appmodules/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - deploymentendpoints
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - deploymentendpoints/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - deploymentendpoints/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - functioncodes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - functioncodes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - functioncodes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - functions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - functions/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - functions/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
   - revisions
   verbs:
   - create
@@ -52,6 +156,32 @@ rules:
   - apps.lyrid.io
   resources:
   - revisions/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - subdomains
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - subdomains/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.lyrid.io
+  resources:
+  - subdomains/status
   verbs:
   - get
   - patch

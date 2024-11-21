@@ -44,9 +44,6 @@ spec:
               bearerToken:
                 type: string
               image:
-                description: |-
-                  Foo is an example field of AppDeployment. Edit appdeployment_types.go to remove/update
-                  Image is the Docker image to deploy
                 type: string
               ports:
                 items:
@@ -188,7 +185,6 @@ spec:
                   type: object
                 type: array
             required:
-            - bearerToken
             - image
             - replicas
             type: object
