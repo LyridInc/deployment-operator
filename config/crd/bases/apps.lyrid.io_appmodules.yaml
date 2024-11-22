@@ -39,9 +39,17 @@ spec:
           spec:
             description: AppModuleSpec defines the desired state of AppModule
             properties:
-              foo:
-                description: Foo is an example field of AppModule. Edit appmodule_types.go
-                  to remove/update
+              name:
+                type: string
+              id:
+                type: string
+              appId:
+                type: string
+              language:
+                type: string
+              web:
+                type: string
+              description:
                 type: string
             type: object
           status:

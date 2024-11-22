@@ -28,8 +28,12 @@ type FunctionCodeSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of FunctionCode. Edit functioncode_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Id               string `json:"id,omitempty"`
+	FunctionId       string `json:"functionId,omitempty"`
+	TargetFramework  string `json:"targetFramework,omitempty"`
+	CodeUri          string `json:"codeUri,omitempty"`
+	ImageUri         string `json:"imageUri,omitempty"`
+	ArtifactSizeByte int    `json:"artifactSizeByte,omitempty"`
 }
 
 // FunctionCodeStatus defines the observed state of FunctionCode

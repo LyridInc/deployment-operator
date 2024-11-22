@@ -28,8 +28,12 @@ type AppModuleSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of AppModule. Edit appmodule_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Id          string `json:"id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	AppId       string `json:"appId,omitempty"`
+	Language    string `json:"language,omitempty"`
+	Web         string `json:"web,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 // AppModuleStatus defines the observed state of AppModule

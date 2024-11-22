@@ -28,8 +28,11 @@ type FunctionSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Function. Edit function_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Id          string `json:"id,omitempty"`
+	ModuleId    string `json:"moduleId,omitempty"`
+	RevisionId  string `json:"revisionId,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 // FunctionStatus defines the observed state of Function

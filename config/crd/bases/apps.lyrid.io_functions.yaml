@@ -4,21 +4,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: deploymentendpoints.apps.lyrid.io
+  name: functions.apps.lyrid.io
 spec:
   group: apps.lyrid.io
   names:
-    kind: DeploymentEndpoint
-    listKind: DeploymentEndpointList
-    plural: deploymentendpoints
-    singular: deploymentendpoint
+    kind: Function
+    listKind: FunctionList
+    plural: functions
+    singular: function
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: DeploymentEndpoint is the Schema for the deploymentendpoints
-          API
+        description: Function is the Schema for the functions API
         properties:
           apiVersion:
             description: |-
@@ -38,15 +37,21 @@ spec:
           metadata:
             type: object
           spec:
-            description: DeploymentEndpointSpec defines the desired state of DeploymentEndpoint
+            description: FunctionSpec defines the desired state of Function
             properties:
-              foo:
-                description: Foo is an example field of DeploymentEndpoint. Edit deploymentendpoint_types.go
-                  to remove/update
+              id:
+                type: string
+              moduleId:
+                type: string
+              revisionId: 
+                type: string
+              name:
+                type: string
+              description:
                 type: string
             type: object
           status:
-            description: DeploymentEndpointStatus defines the observed state of DeploymentEndpoint
+            description: FunctionStatus defines the observed state of Function
             type: object
         type: object
     served: true

@@ -39,10 +39,20 @@ spec:
           spec:
             description: SubdomainSpec defines the desired state of Subdomain
             properties:
-              foo:
-                description: Foo is an example field of Subdomain. Edit subdomain_types.go
-                  to remove/update
+              name:
                 type: string
+              accountId:
+                type: string
+              appId:
+                type: string
+              moduleId:
+                type: string
+              functionName:
+                type: string
+              tag:
+                type: string
+              public:
+                type: boolean
             type: object
           status:
             description: SubdomainStatus defines the observed state of Subdomain

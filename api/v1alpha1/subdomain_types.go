@@ -28,8 +28,13 @@ type SubdomainSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Subdomain. Edit subdomain_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Name         string `json:"name,omitempty"`
+	AccountId    string `json:"accountId,omitempty"`
+	AppId        string `json:"appId,omitempty"`
+	ModuleId     string `json:"moduleId,omitempty"`
+	FunctionName string `json:"functionId,omitempty"`
+	Tag          string `json:"tag,omitempty"`
+	Public       bool   `json:"public,omitempty"`
 }
 
 // SubdomainStatus defines the observed state of Subdomain

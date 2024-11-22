@@ -4,20 +4,21 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: functioncodes.apps.lyrid.io
+  name: deploymentendpoints.apps.lyrid.io
 spec:
   group: apps.lyrid.io
   names:
-    kind: FunctionCode
-    listKind: FunctionCodeList
-    plural: functioncodes
-    singular: functioncode
+    kind: DeploymentEndpoint
+    listKind: DeploymentEndpointList
+    plural: deploymentendpoints
+    singular: deploymentendpoint
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: FunctionCode is the Schema for the functioncodes API
+        description: DeploymentEndpoint is the Schema for the deploymentendpoints
+          API
         properties:
           apiVersion:
             description: |-
@@ -37,15 +38,37 @@ spec:
           metadata:
             type: object
           spec:
-            description: FunctionCodeSpec defines the desired state of FunctionCode
+            description: DeploymentEndpointSpec defines the desired state of DeploymentEndpoint
             properties:
-              foo:
-                description: Foo is an example field of FunctionCode. Edit functioncode_types.go
-                  to remove/update
+              id:
+                type: string
+              codeId:
+                type: string
+              name:
+                type: string
+              type:
+                type: string
+              vendorId:
+                type: integer
+                format: int32
+              regionId:
+                type: string
+              endpoint:
+                type: string
+              memory:
+                type: string
+              timeout:
+                type: integer
+                format: int32
+              metadata:
+                type: string
+              relatedVega:
+                type: string
+              namespace:
                 type: string
             type: object
           status:
-            description: FunctionCodeStatus defines the observed state of FunctionCode
+            description: DeploymentEndpointStatus defines the observed state of DeploymentEndpoint
             type: object
         type: object
     served: true

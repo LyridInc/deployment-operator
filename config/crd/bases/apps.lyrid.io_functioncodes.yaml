@@ -4,20 +4,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: functions.apps.lyrid.io
+  name: functioncodes.apps.lyrid.io
 spec:
   group: apps.lyrid.io
   names:
-    kind: Function
-    listKind: FunctionList
-    plural: functions
-    singular: function
+    kind: FunctionCode
+    listKind: FunctionCodeList
+    plural: functioncodes
+    singular: functioncode
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Function is the Schema for the functions API
+        description: FunctionCode is the Schema for the functioncodes API
         properties:
           apiVersion:
             description: |-
@@ -37,15 +37,24 @@ spec:
           metadata:
             type: object
           spec:
-            description: FunctionSpec defines the desired state of Function
+            description: FunctionCodeSpec defines the desired state of FunctionCode
             properties:
-              foo:
-                description: Foo is an example field of Function. Edit function_types.go
-                  to remove/update
+              id:
                 type: string
+              functionId:
+                type: string
+              targetFramework:
+                type: string
+              codeUri:
+                type: string
+              imageUri:
+                type: string
+              artifactSizeByte:
+                format: int32
+                type: integer
             type: object
           status:
-            description: FunctionStatus defines the observed state of Function
+            description: FunctionCodeStatus defines the observed state of FunctionCode
             type: object
         type: object
     served: true
