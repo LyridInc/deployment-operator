@@ -28,12 +28,17 @@ type AppModuleSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Id          string `json:"id,omitempty"`
-	Name        string `json:"name,omitempty"`
-	AppId       string `json:"appId,omitempty"`
-	Language    string `json:"language,omitempty"`
-	Web         string `json:"web,omitempty"`
-	Description string `json:"description,omitempty"`
+	Id          string       `json:"id,omitempty"`
+	Name        string       `json:"name,omitempty"`
+	AppId       string       `json:"appId,omitempty"`
+	Language    string       `json:"language,omitempty"`
+	Web         string       `json:"web,omitempty"`
+	Description string       `json:"description,omitempty"`
+	Ref         AppModuleRef `json:"ref,omitempty"`
+}
+
+type AppModuleRef struct {
+	AppDeployment map[string]string `json:"appDeployment"`
 }
 
 // AppModuleStatus defines the observed state of AppModule

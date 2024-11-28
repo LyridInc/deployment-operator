@@ -29,12 +29,18 @@ type RevisionSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	Id           string                      `json:"id"`
 	Image        string                      `json:"image"`
 	ModuleId     string                      `json:"moduleId"`
 	Ports        []corev1.ContainerPort      `json:"ports,omitempty"`
 	Replicas     int32                       `json:"replicas"`
 	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
 	VolumeMounts []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
+	Ref          RevisionRef                 `json:"ref,omitempty"`
+}
+
+type RevisionRef struct {
+	AppDeployment map[string]string `json:"appDeployment"`
 }
 
 // RevisionStatus defines the observed state of Revision

@@ -39,6 +39,8 @@ spec:
           spec:
             description: RevisionSpec defines the desired state of Revision
             properties:
+              id:
+                type: string
               image:
                 description: |-
                   Foo is an example field of AppDeployment. Edit appdeployment_types.go to remove/update
@@ -141,6 +143,14 @@ spec:
                       More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                     type: object
                 type: object
+              ref:
+                type: object
+                properties:
+                  appDeployment:
+                    type: object
+                    properties:
+                      name:
+                        type: string
               moduleId:
                 type: string
               volumeMounts:

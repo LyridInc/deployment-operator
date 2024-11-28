@@ -31,12 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	lyrmodel "github.com/LyridInc/go-sdk/model"
 	appsv1alpha1 "github.com/LyridInc/lyrid-operator/api/v1alpha1"
 	"github.com/LyridInc/lyrid-operator/pkg/lyra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	lyrmodel "github.com/LyridInc/go-sdk/model"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,8 +45,9 @@ import (
 // AppDeploymentReconciler reconciles a AppDeployment object
 type AppDeploymentReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
-	K8sClient *kubernetes.Clientset
+	Scheme             *runtime.Scheme
+	K8sClient          *kubernetes.Clientset
+	RevisionReconciler *RevisionReconciler
 }
 
 //+kubebuilder:rbac:groups=apps.lyrid.io,resources=appdeployments,verbs=get;list;watch;create;update;patch;delete
@@ -93,7 +94,7 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	isCreateNewRevision, _ := handleAppDeploymentChanges(ctx, r, *appDeploy)
+	isCreateNewAppModule, isCreateNewRevision, _ := handleAppDeploymentChanges(ctx, r, *appDeploy)
 	if isCreateNewRevision {
 		appDeploy.Spec.CurrentRevisionId = "" // empty the revision id so that it will trigger new revision creation
 	}
@@ -103,52 +104,54 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	if isCreateNewAppModule {
+		newAppModule := &appsv1alpha1.AppModule{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"source": "lyrid-operator",
+				},
+			},
+			Spec: appsv1alpha1.AppModuleSpec{
+				Id:          syncAppResponse.ModuleRevision.ID,
+				Name:        appDeploy.Name + "-module",
+				AppId:       syncAppResponse.App.ID,
+				Language:    "Docker",
+				Web:         "-",
+				Description: "App module from operator",
+				Ref: appsv1alpha1.AppModuleRef{
+					AppDeployment: map[string]string{
+						"name": appDeploy.Name,
+					},
+				},
+			},
+		}
+		newAppModule.SetName(appDeploy.Name + "-module")
+		newAppModule.SetNamespace(appDeploy.Namespace)
+
+		if err := controllerutil.SetControllerReference(
+			appDeploy,
+			newAppModule,
+			r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// Create the instance if it does not exist
+		if err := r.Client.Create(ctx, newAppModule); err != nil {
+			if !errors.IsAlreadyExists(err) {
+				log.Error(err, "Failed to create new Module instance")
+				return ctrl.Result{}, err
+			}
+			log.Error(err, "Failed to create new Module instance")
+			return ctrl.Result{}, err
+		}
+	}
+
 	if syncAppResponse.ModuleRevision.ID != "" {
 		handleRevisionChanges(ctx, r, *appDeploy, *syncAppResponse)
 	}
 
 	if isCreateNewRevision {
-		ports := []corev1.ServicePort{}
-		for _, p := range appDeploy.Spec.Ports {
-			ports = append(ports, corev1.ServicePort{
-				Name:       p.Name,
-				Protocol:   p.Protocol,
-				Port:       80,
-				TargetPort: intstr.FromInt(int(p.ContainerPort)),
-			})
-		}
-
-		service := &corev1.Service{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Service",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      appDeploy.Name,
-				Namespace: appDeploy.Namespace,
-			},
-			Spec: corev1.ServiceSpec{
-				Ports: ports,
-				Selector: map[string]string{
-					"app": appDeploy.Name,
-				},
-				Type: "ClusterIP",
-			},
-		}
-
-		existingService, err := r.K8sClient.CoreV1().Services(appDeploy.Namespace).Get(ctx, service.Name, metav1.GetOptions{})
-		if err == nil && existingService != nil {
-			if _, err := r.K8sClient.CoreV1().Services(appDeploy.Namespace).Update(ctx, service, metav1.UpdateOptions{}); err != nil {
-				fmt.Println(err)
-				return ctrl.Result{}, err
-			}
-		} else {
-			if _, err := r.K8sClient.CoreV1().Services(appDeploy.Namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
-				fmt.Println(err)
-				return ctrl.Result{}, err
-			}
-		}
-
+		handleServiceChanges(ctx, r, *appDeploy)
 	}
 
 	return ctrl.Result{}, nil
@@ -156,6 +159,7 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *AppDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.RevisionReconciler = &RevisionReconciler{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1alpha1.AppDeployment{}).
 		WithEventFilter(predicate.Funcs{
@@ -178,7 +182,7 @@ func (r *AppDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func handleAppDeploymentChanges(ctx context.Context, r *AppDeploymentReconciler, appDeploy appsv1alpha1.AppDeployment) (bool, error) {
+func handleAppDeploymentChanges(ctx context.Context, r *AppDeploymentReconciler, appDeploy appsv1alpha1.AppDeployment) (bool, bool, error) {
 	container := corev1.Container{
 		Name:      appDeploy.Name,
 		Image:     appDeploy.Spec.Image,
@@ -214,18 +218,20 @@ func handleAppDeploymentChanges(ctx context.Context, r *AppDeploymentReconciler,
 	}
 
 	if err := controllerutil.SetControllerReference(&appDeploy, dep, r.Scheme); err != nil {
-		return false, err
+		return false, false, err
 	}
 
+	var createNewApp bool
 	var createNewRevision bool
 	found := &appsv1.Deployment{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dep.Name, Namespace: dep.Namespace}, found); err != nil {
 		// If the Deployment doesn't exist, create it
 		err = r.Create(ctx, dep)
 		if err != nil {
-			return createNewRevision, err
+			return createNewApp, createNewRevision, err
 		}
 		createNewRevision = true
+		createNewApp = true
 	} else {
 		// Update the existing Deployment if necessary
 		if *found.Spec.Replicas != appDeploy.Spec.Replicas || found.Spec.Template.Spec.Containers[0].Image != appDeploy.Spec.Image {
@@ -236,15 +242,59 @@ func handleAppDeploymentChanges(ctx context.Context, r *AppDeploymentReconciler,
 
 			err = r.Update(ctx, found)
 			if err != nil {
-				return createNewRevision, err
+				return createNewApp, createNewRevision, err
 			}
 
-			// TODO: empty the revision so that whenever a change occured, it will create a new revision
 			createNewRevision = true
 		}
 
 	}
-	return createNewRevision, nil
+	return createNewApp, createNewRevision, nil
+}
+
+func handleServiceChanges(ctx context.Context, r *AppDeploymentReconciler, appDeploy appsv1alpha1.AppDeployment) (ctrl.Result, error) {
+	ports := []corev1.ServicePort{}
+	for _, p := range appDeploy.Spec.Ports {
+		ports = append(ports, corev1.ServicePort{
+			Name:       p.Name,
+			Protocol:   p.Protocol,
+			Port:       80,
+			TargetPort: intstr.FromInt(int(p.ContainerPort)),
+		})
+	}
+
+	service := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      appDeploy.Name,
+			Namespace: appDeploy.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: ports,
+			Selector: map[string]string{
+				"app": appDeploy.Name,
+			},
+			Type: "ClusterIP",
+		},
+	}
+
+	existingService, err := r.K8sClient.CoreV1().Services(appDeploy.Namespace).Get(ctx, service.Name, metav1.GetOptions{})
+	if err == nil && existingService != nil {
+		if _, err := r.K8sClient.CoreV1().Services(appDeploy.Namespace).Update(ctx, service, metav1.UpdateOptions{}); err != nil {
+			fmt.Println(err)
+			return ctrl.Result{}, err
+		}
+	} else {
+		if _, err := r.K8sClient.CoreV1().Services(appDeploy.Namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
+			fmt.Println(err)
+			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, err
 }
 
 func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appDeploy appsv1alpha1.AppDeployment, syncApp lyrmodel.SyncAppResponse) (ctrl.Result, error) {
@@ -268,18 +318,6 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 			fmt.Println(fmt.Errorf("failed to list revisions: %w", err))
 		}
 
-		revisionsCount := len(revisionsList.Items)
-		if revisionsCount >= 3 {
-			sort.Slice(revisionsList.Items, func(i, j int) bool {
-				return revisionsList.Items[i].CreationTimestamp.After(revisionsList.Items[j].CreationTimestamp.Time)
-			})
-
-			deletedRevision := revisionsList.Items[revisionsCount-1]
-			if err := r.Client.Delete(ctx, &deletedRevision); err != nil {
-				fmt.Println(fmt.Errorf("failed to delete revision %s: %w", deletedRevision.Name, err))
-			}
-		}
-
 		for _, revision := range revisionsList.Items {
 			revision.Status.Phase = "Non-active"
 
@@ -290,13 +328,24 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 
 		var spec = appDeploy.Spec
 		newRevision := &appsv1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"source": "lyrid-operator",
+				},
+			},
 			Spec: appsv1alpha1.RevisionSpec{
+				Id:           syncApp.ModuleRevision.ID,
 				Image:        spec.Image,
 				ModuleId:     syncApp.Module.ID,
 				Ports:        spec.Ports,
 				Replicas:     spec.Replicas,
 				Resources:    spec.Resources,
 				VolumeMounts: spec.VolumeMounts,
+				Ref: appsv1alpha1.RevisionRef{
+					AppDeployment: map[string]string{
+						"name": appDeploy.Name,
+					},
+				},
 			},
 		}
 		newRevision.SetName(syncApp.ModuleRevision.Title)
@@ -332,6 +381,19 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 		if err := r.Status().Update(ctx, newRevision); err != nil {
 			log.Error(err, "Failed to update status")
 			return ctrl.Result{}, err
+		}
+
+		revisionsCount := len(revisionsList.Items)
+		if revisionsCount >= 3 {
+			sort.Slice(revisionsList.Items, func(i, j int) bool {
+				return revisionsList.Items[i].CreationTimestamp.After(revisionsList.Items[j].CreationTimestamp.Time)
+			})
+
+			deletedRevision := revisionsList.Items[revisionsCount-1]
+
+			if err := r.Client.Delete(ctx, &deletedRevision); err != nil {
+				fmt.Println(fmt.Errorf("failed to delete revision %s: %w", deletedRevision.Name, err))
+			}
 		}
 	}
 

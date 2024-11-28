@@ -1,0 +1,28 @@
+direction: right;
+
+Data.shape: cylinder
+
+BERT
+BiLSTM
+GCN."Graph Features"
+
+Results.Accuracy
+Results.Precision
+Results.Recall
+Results."F1-Score"
+
+
+Preprocessing.Tokenization
+Preprocessing."Stopwords Removal"
+Preprocessing."etc.."
+
+Data -> Preprocessing
+
+
+Preprocessing -> BERT
+Preprocessing -> BiLSTM
+Preprocessing -> GCN
+
+BERT -> Results
+BiLSTM -> Results
+GCN -> Results
