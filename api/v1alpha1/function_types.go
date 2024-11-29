@@ -28,11 +28,12 @@ type FunctionSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Id          string `json:"id,omitempty"`
-	ModuleId    string `json:"moduleId,omitempty"`
-	RevisionId  string `json:"revisionId,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
+	Id          string           `json:"id,omitempty"`
+	ModuleId    string           `json:"moduleId,omitempty"`
+	RevisionId  string           `json:"revisionId,omitempty"`
+	Name        string           `json:"name,omitempty"`
+	Description string           `json:"description,omitempty"`
+	Ref         AppDeploymentRef `json:"ref,omitempty"`
 }
 
 // FunctionStatus defines the observed state of Function

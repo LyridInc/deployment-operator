@@ -28,13 +28,14 @@ type SubdomainSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Name         string `json:"name,omitempty"`
-	AccountId    string `json:"accountId,omitempty"`
-	AppId        string `json:"appId,omitempty"`
-	ModuleId     string `json:"moduleId,omitempty"`
-	FunctionName string `json:"functionId,omitempty"`
-	Tag          string `json:"tag,omitempty"`
-	Public       bool   `json:"public,omitempty"`
+	Name         string           `json:"name,omitempty"`
+	AccountId    string           `json:"accountId,omitempty"`
+	AppId        string           `json:"appId,omitempty"`
+	ModuleId     string           `json:"moduleId,omitempty"`
+	FunctionName string           `json:"functionId,omitempty"`
+	Tag          string           `json:"tag,omitempty"`
+	Public       bool             `json:"public,omitempty"`
+	Ref          AppDeploymentRef `json:"ref,omitempty"`
 }
 
 // SubdomainStatus defines the observed state of Subdomain

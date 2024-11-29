@@ -36,11 +36,7 @@ type RevisionSpec struct {
 	Replicas     int32                       `json:"replicas"`
 	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
 	VolumeMounts []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
-	Ref          RevisionRef                 `json:"ref,omitempty"`
-}
-
-type RevisionRef struct {
-	AppDeployment map[string]string `json:"appDeployment"`
+	Ref          AppDeploymentRef            `json:"ref,omitempty"`
 }
 
 // RevisionStatus defines the observed state of Revision

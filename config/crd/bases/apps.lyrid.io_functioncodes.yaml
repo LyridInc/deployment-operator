@@ -52,6 +52,14 @@ spec:
               artifactSizeByte:
                 format: int32
                 type: integer
+              ref:
+                type: object
+                properties:
+                  appDeployment:
+                    type: object
+                    properties:
+                      name:
+                        type: string
             type: object
           status:
             description: FunctionCodeStatus defines the observed state of FunctionCode

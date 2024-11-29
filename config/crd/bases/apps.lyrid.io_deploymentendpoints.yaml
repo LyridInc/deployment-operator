@@ -66,6 +66,14 @@ spec:
                 type: string
               namespace:
                 type: string
+              ref:
+                type: object
+                properties:
+                  appDeployment:
+                    type: object
+                    properties:
+                      name:
+                        type: string
             type: object
           status:
             description: DeploymentEndpointStatus defines the observed state of DeploymentEndpoint

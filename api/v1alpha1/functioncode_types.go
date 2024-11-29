@@ -28,12 +28,13 @@ type FunctionCodeSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Id               string `json:"id,omitempty"`
-	FunctionId       string `json:"functionId,omitempty"`
-	TargetFramework  string `json:"targetFramework,omitempty"`
-	CodeUri          string `json:"codeUri,omitempty"`
-	ImageUri         string `json:"imageUri,omitempty"`
-	ArtifactSizeByte int    `json:"artifactSizeByte,omitempty"`
+	Id               string           `json:"id,omitempty"`
+	FunctionId       string           `json:"functionId,omitempty"`
+	TargetFramework  string           `json:"targetFramework,omitempty"`
+	CodeUri          string           `json:"codeUri,omitempty"`
+	ImageUri         string           `json:"imageUri,omitempty"`
+	ArtifactSizeByte int              `json:"artifactSizeByte,omitempty"`
+	Ref              AppDeploymentRef `json:"ref,omitempty"`
 }
 
 // FunctionCodeStatus defines the observed state of FunctionCode

@@ -89,6 +89,12 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				fmt.Println("Error:", err)
 				return ctrl.Result{}, err
 			}
+
+			// delete service
+			if err := r.K8sClient.CoreV1().Services(appDeploy.Namespace).Delete(ctx, appDeploy.Name, metav1.DeleteOptions{}); err != nil {
+				fmt.Println("Delete service error:", err)
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -105,6 +111,7 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if isCreateNewAppModule {
+		// new module
 		newAppModule := &appsv1alpha1.AppModule{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
@@ -118,7 +125,7 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				Language:    "Docker",
 				Web:         "-",
 				Description: "App module from operator",
-				Ref: appsv1alpha1.AppModuleRef{
+				Ref: appsv1alpha1.AppDeploymentRef{
 					AppDeployment: map[string]string{
 						"name": appDeploy.Name,
 					},
@@ -142,6 +149,48 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				return ctrl.Result{}, err
 			}
 			log.Error(err, "Failed to create new Module instance")
+			return ctrl.Result{}, err
+		}
+
+		// new subdomain
+		newSubdomain := &appsv1alpha1.Subdomain{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"source": "lyrid-operator",
+				},
+			},
+			Spec: appsv1alpha1.SubdomainSpec{
+				Name:         syncAppResponse.Subdomain.Name,
+				AppId:        syncAppResponse.Subdomain.AppId,
+				AccountId:    syncAppResponse.App.AccountId,
+				ModuleId:     syncAppResponse.Subdomain.ModuleId,
+				FunctionName: syncAppResponse.Subdomain.FunctionName,
+				Tag:          syncAppResponse.Subdomain.Tag,
+				// Public:       *syncAppResponse.Subdomain.Public,
+				Ref: appsv1alpha1.AppDeploymentRef{
+					AppDeployment: map[string]string{
+						"name": appDeploy.Name,
+					},
+				},
+			},
+		}
+		newSubdomain.SetName(syncAppResponse.Subdomain.Name)
+		newSubdomain.SetNamespace(appDeploy.Namespace)
+
+		if err := controllerutil.SetControllerReference(
+			appDeploy,
+			newSubdomain,
+			r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		// Create the instance if it does not exist
+		if err := r.Client.Create(ctx, newSubdomain); err != nil {
+			if !errors.IsAlreadyExists(err) {
+				log.Error(err, "Failed to create new Subdomain instance")
+				return ctrl.Result{}, err
+			}
+			log.Error(err, "Failed to create new Subdomain instance")
 			return ctrl.Result{}, err
 		}
 	}
@@ -341,7 +390,7 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 				Replicas:     spec.Replicas,
 				Resources:    spec.Resources,
 				VolumeMounts: spec.VolumeMounts,
-				Ref: appsv1alpha1.RevisionRef{
+				Ref: appsv1alpha1.AppDeploymentRef{
 					AppDeployment: map[string]string{
 						"name": appDeploy.Name,
 					},
@@ -394,7 +443,65 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 			if err := r.Client.Delete(ctx, &deletedRevision); err != nil {
 				fmt.Println(fmt.Errorf("failed to delete revision %s: %w", deletedRevision.Name, err))
 			}
+
+			// delete function, function code, and create new
+
+			if _, err := createFunction(ctx, r, appDeploy, syncApp); err != nil {
+				log.Error(err, "Failed to create function")
+				return ctrl.Result{}, err
+			}
 		}
+	} else if appDeploy.Spec.CurrentRevisionId == "" {
+
+		if _, err := createFunction(ctx, r, appDeploy, syncApp); err != nil {
+			log.Error(err, "Failed to create function")
+			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func createFunction(ctx context.Context, r *AppDeploymentReconciler, appDeploy appsv1alpha1.AppDeployment, syncApp lyrmodel.SyncAppResponse) (ctrl.Result, error) {
+
+	log := log.FromContext(ctx)
+	newFunction := &appsv1alpha1.Function{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"source": "lyrid-operator",
+			},
+		},
+		Spec: appsv1alpha1.FunctionSpec{
+			Id:          syncApp.Function.ID,
+			ModuleId:    syncApp.Function.ModuleID,
+			RevisionId:  syncApp.Function.RevisionID,
+			Name:        syncApp.Function.Name,
+			Description: syncApp.Function.Description,
+			Ref: appsv1alpha1.AppDeploymentRef{
+				AppDeployment: map[string]string{
+					"name": appDeploy.Name,
+				},
+			},
+		},
+	}
+	newFunction.SetName(syncApp.Function.Name)
+	newFunction.SetNamespace(appDeploy.Namespace)
+
+	if err := controllerutil.SetControllerReference(
+		&appDeploy,
+		newFunction,
+		r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Create the instance if it does not exist
+	if err := r.Client.Create(ctx, newFunction); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			log.Error(err, "Failed to create new Function instance: Already exist")
+			return ctrl.Result{}, err
+		}
+		log.Error(err, "Failed to create new Function instance")
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

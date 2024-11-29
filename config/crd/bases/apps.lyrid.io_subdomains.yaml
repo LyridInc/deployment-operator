@@ -53,6 +53,14 @@ spec:
                 type: string
               public:
                 type: boolean
+              ref:
+                type: object
+                properties:
+                  appDeployment:
+                    type: object
+                    properties:
+                      name:
+                        type: string
             type: object
           status:
             description: SubdomainStatus defines the observed state of Subdomain

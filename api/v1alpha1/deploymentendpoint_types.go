@@ -28,18 +28,19 @@ type DeploymentEndpointSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Id          string `json:"id,omitempty"`
-	CodeId      string `json:"codeId,omitempty"`
-	Name        string `json:"name,omitempty"`
-	Type        string `json:"type,omitempty"`
-	VendorId    string `json:"vendorId,omitempty"`
-	RegionId    string `json:"regionId,omitempty"`
-	Endpoint    string `json:"endpoint,omitempty"`
-	Memory      string `json:"memory,omitempty"`
-	Timeout     string `json:"timeout,omitempty"`
-	Metadata    string `json:"metadata,omitempty"`
-	RelatedVega string `json:"relatedVega,omitempty"`
-	Namespace   string `json:"namespace,omitempty"`
+	Id          string           `json:"id,omitempty"`
+	CodeId      string           `json:"codeId,omitempty"`
+	Name        string           `json:"name,omitempty"`
+	Type        string           `json:"type,omitempty"`
+	VendorId    string           `json:"vendorId,omitempty"`
+	RegionId    string           `json:"regionId,omitempty"`
+	Endpoint    string           `json:"endpoint,omitempty"`
+	Memory      string           `json:"memory,omitempty"`
+	Timeout     string           `json:"timeout,omitempty"`
+	Metadata    string           `json:"metadata,omitempty"`
+	RelatedVega string           `json:"relatedVega,omitempty"`
+	Namespace   string           `json:"namespace,omitempty"`
+	Ref         AppDeploymentRef `json:"ref,omitempty"`
 }
 
 // DeploymentEndpointStatus defines the observed state of DeploymentEndpoint
