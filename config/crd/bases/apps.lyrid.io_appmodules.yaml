@@ -63,6 +63,9 @@ spec:
           status:
             description: AppModuleStatus defines the observed state of AppModule
             type: object
+            properties:
+              observedGeneration:
+                type: integer
         type: object
     served: true
     storage: true

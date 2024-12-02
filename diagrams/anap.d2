@@ -1,0 +1,42 @@
+direction: right
+vars: {
+  d2-config: {
+    sketch: true
+  }
+}
+
+Daftar Fasilitas Anauniversity: {
+  "<<Window>>\n Daftar Fasilitas \nAnauniversity": {
+    "<<button>>\n Ajukan Keluhan"
+    "<<button>>\n Ajukan Peminjaman"
+
+    style: {
+      stroke-width: 0
+    }
+  }
+  label: ""
+}
+
+Form Peminjaman Fasilitas: {
+  label: ""
+  "<<form>> \nForm Pengajuan \nPeminjaman Fasilitas": {
+    "<<button>>\n Ajukan Peminjaman Fasilitas"
+    style: {
+      stroke-width: 0
+    }
+  }
+}
+
+Form Keluhan Fasilitas: {
+  label: ""
+  "<<form>> \nForm Pengajuan \nKeluhan Fasilitas": {
+    "<<button>>\n Ajukan Keluhan Fasilitas"
+    style: {
+      stroke-width: 0
+    }
+  }
+}
+
+Daftar Fasilitas Anauniversity."<<Window>>\n Daftar Fasilitas \nAnauniversity"."<<button>>\n Ajukan Peminjaman" -> Form Peminjaman Fasilitas : Click Ajukan Peminjaman Button
+
+Daftar Fasilitas Anauniversity."<<Window>>\n Daftar Fasilitas \nAnauniversity"."<<button>>\n Ajukan Keluhan" -> Form Keluhan Fasilitas : Click Ajukan Form

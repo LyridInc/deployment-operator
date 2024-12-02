@@ -116,6 +116,7 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					"source": "lyrid-operator",
+					"origin": "app-deployment",
 				},
 			},
 			Spec: appsv1alpha1.AppModuleSpec{
@@ -452,7 +453,6 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 			}
 		}
 	} else if appDeploy.Spec.CurrentRevisionId == "" {
-
 		if _, err := createFunction(ctx, r, appDeploy, syncApp); err != nil {
 			log.Error(err, "Failed to create function")
 			return ctrl.Result{}, err

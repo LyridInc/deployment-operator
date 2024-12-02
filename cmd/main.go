@@ -152,8 +152,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.AppModuleReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		K8sClient: k8sClientset,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AppModule")
 		os.Exit(1)
