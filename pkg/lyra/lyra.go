@@ -206,7 +206,7 @@ func (c *LyraClient) SyncApp(appDeployment appsv1alpha1.AppDeployment, accessKey
 	return &syncAppResponse, nil
 }
 
-func (c *LyraClient) SyncModule(appDeployment appsv1alpha1.AppDeployment, moduleId, accessKey, accessSecret string) (*lyrmodel.SyncModuleResponse, error) {
+func (c *LyraClient) SyncModule(appDeployment appsv1alpha1.AppDeployment, appModule appsv1alpha1.AppModule, accessKey, accessSecret string) (*lyrmodel.SyncModuleResponse, error) {
 	resources := lyrmodel.SyncAppResources{
 		Limits: lyrmodel.SyncAppResource{
 			Cpu:    appDeployment.Spec.Resources.Limits.Cpu().String(),
@@ -234,15 +234,19 @@ func (c *LyraClient) SyncModule(appDeployment appsv1alpha1.AppDeployment, module
 	}
 
 	requestBody := lyrmodel.SyncModuleRequest{
-		AppName:          appDeployment.Name,
-		AppNamespace:     appDeployment.Namespace,
-		Replicas:         appDeployment.Spec.Replicas,
-		Ports:            ports,
-		Resources:        resources,
-		VolumeMounts:     volumeMount,
-		ActiveRevisionId: appDeployment.Spec.CurrentRevisionId,
-		InstanceID:       c.InstanceID,
-		ModuleId:         moduleId,
+		AppName:           appDeployment.Name,
+		AppNamespace:      appDeployment.Namespace,
+		Replicas:          appDeployment.Spec.Replicas,
+		Ports:             ports,
+		Resources:         resources,
+		VolumeMounts:      volumeMount,
+		ActiveRevisionId:  appDeployment.Spec.CurrentRevisionId,
+		InstanceID:        c.InstanceID,
+		ModuleId:          appModule.Spec.Id,
+		ModuleDescription: appModule.Spec.Description,
+		ModuleLanguage:    appModule.Spec.Language,
+		ModuleName:        appModule.Spec.Name,
+		ModuleWeb:         appModule.Spec.Web,
 	}
 
 	jsonData, err := json.Marshal(requestBody)

@@ -1,28 +1,16 @@
-direction: right;
+input: "Input Teks"
 
-Data.shape: cylinder
-
-BERT
-BiLSTM
-GCN."Graph Features"
-
-Results.Accuracy
-Results.Precision
-Results.Recall
-Results."F1-Score"
+tokenization: "Tokenisasi\nMenambahkan [CLS] dan [SEP]\nMengubah teks menjadi Token IDs"
 
 
-Preprocessing.Tokenization
-Preprocessing."Stopwords Removal"
-Preprocessing."etc.."
 
-Data -> Preprocessing
+embedding: "Embedding Layer\nKonversi token menjadi vektor numerik"
+transformer: "Transformer Layers\nSelf-Attention dan Feed-Forward"
+classification: "Kepala Klasifikasi\nPrediksi Kelas menggunakan Softmax"
+output: "Output Probabilitas\nReal: 80%, Fake: 20%"
 
-
-Preprocessing -> BERT
-Preprocessing -> BiLSTM
-Preprocessing -> GCN
-
-BERT -> Results
-BiLSTM -> Results
-GCN -> Results
+input -> tokenization: "Teks mentah"
+tokenization -> embedding: "Token IDs"
+embedding -> transformer: "Vektor numerik"
+transformer -> classification: "Representasi [CLS]"
+classification -> output: "Probabilitas kelas"

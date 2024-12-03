@@ -6,6 +6,8 @@ github.com/LyridInc/go-sdk v0.2.5-dev.18 h1:wfoq6AiftCmj5Xsk1NupGrRHA0NIjbDNqdg0
 github.com/LyridInc/go-sdk v0.2.5-dev.18/go.mod h1:dw3ih90up5Soc9Kiiy3qAtmpFCzNlv3BIvCyX49Jw/k=
 github.com/LyridInc/go-sdk v0.2.5-dev.19 h1:3dnj/tvTrLl1nVIJHGnX/JqDpyeG9cvsYvm48jq+l2I=
 github.com/LyridInc/go-sdk v0.2.5-dev.19/go.mod h1:dw3ih90up5Soc9Kiiy3qAtmpFCzNlv3BIvCyX49Jw/k=
+github.com/LyridInc/go-sdk v0.2.5-dev.20 h1:dQibW7vWuMkINIMKDorhpvh1TqR0oq2ScycgqvHhNuE=
+github.com/LyridInc/go-sdk v0.2.5-dev.20/go.mod h1:dw3ih90up5Soc9Kiiy3qAtmpFCzNlv3BIvCyX49Jw/k=
 github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b h1:mimo19zliBX/vSQ6PWWSL9lK8qwHozUj03+zLoEB8O0=
 github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b/go.mod h1:fvzegU4vN3H1qMT+8wDmzjAcDONcgo2/SZ/TyfdUOFs=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=

@@ -3,7 +3,7 @@ module github.com/LyridInc/lyrid-operator
 go 1.23.2
 
 require (
-	github.com/LyridInc/go-sdk v0.2.5-dev.19
+	github.com/LyridInc/go-sdk v0.2.5-dev.20
 	github.com/joho/godotenv v1.5.1
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1

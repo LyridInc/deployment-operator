@@ -120,7 +120,7 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				},
 			},
 			Spec: appsv1alpha1.AppModuleSpec{
-				Id:          syncAppResponse.ModuleRevision.ID,
+				Id:          syncAppResponse.Module.ID,
 				Name:        appDeploy.Name + "-module",
 				AppId:       syncAppResponse.App.ID,
 				Language:    "Docker",
