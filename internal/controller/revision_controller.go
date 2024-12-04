@@ -21,10 +21,13 @@ import (
 	"fmt"
 	"sort"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -54,24 +57,66 @@ type RevisionReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *RevisionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx)
 
 	fmt.Println("------------------------------------- RECONCILE REVISION HERE -------------------------------------")
-	revision := appsv1alpha1.Revision{}
-	err := r.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, &revision)
-	if err != nil {
+	accountSecret := &corev1.Secret{}
+	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: "lyrid.secretkey", Namespace: req.Namespace}, accountSecret); err != nil {
 		if errors.IsNotFound(err) {
+			fmt.Printf("lyrid.secretkey secret is not found in namespace %s\n", req.Namespace)
 			return ctrl.Result{}, nil
 		}
-	} else if revision.Status.Phase == "Active" {
-		fmt.Println(req.Name, revision.Name)
-		appDeploy := appsv1alpha1.AppDeployment{}
-		if err := r.Get(ctx, types.NamespacedName{Name: revision.Spec.Ref.AppDeployment["name"], Namespace: req.Namespace}, &appDeploy); err == nil {
-			if appDeploy.Spec.CurrentRevisionId != revision.Spec.Id {
-				fmt.Println("Changes in revision")
+		return ctrl.Result{}, err
+	}
+
+	revision := &appsv1alpha1.Revision{}
+	if err := r.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, revision); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("AppModule is deleted ->")
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	fmt.Println("REVISION:", revision.Name)
+
+	if revision.Generation != revision.Status.ObservedGeneration {
+		defer func() {
+			revision.Status.ObservedGeneration = revision.Generation
+			if err := r.Client.Status().Update(ctx, revision); err != nil {
+				fmt.Println("Update generation error:", err)
 			}
+		}()
+	} else {
+		return ctrl.Result{}, nil
+	}
+
+	if origin, ok := revision.Annotations["origin"]; ok && origin == "app-deployment" {
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			// Fetch the latest resource
+			if err := r.Get(ctx, req.NamespacedName, revision); err != nil {
+				return err
+			}
+
+			// Update the annotation
+			if revision.Annotations == nil {
+				revision.Annotations = make(map[string]string)
+			}
+			revision.Annotations["origin"] = ""
+
+			// Attempt to update
+			return r.Client.Update(ctx, revision)
+		})
+
+		if err != nil {
+			log.Error(err, "Failed to update Revision instance after retries")
+			return ctrl.Result{}, err
 		}
 	}
+
+	fmt.Println("HERE:", revision.Name, revision.Status.Phase)
+	// this assume we switch up the active revision
+	revisionHandleAppDeploymentChanges(ctx, r, *revision)
 
 	return ctrl.Result{}, nil
 }
@@ -186,4 +231,35 @@ func revisionHandleRevisionChanges(ctx context.Context, r *RevisionReconciler, a
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func revisionHandleAppDeploymentChanges(ctx context.Context, r *RevisionReconciler, revision appsv1alpha1.Revision) (bool, bool, error) {
+	var createNewApp bool
+	var createNewRevision bool
+	found := &appsv1.Deployment{}
+	if err := r.Get(ctx, types.NamespacedName{Name: revision.Spec.Ref.AppDeployment["name"], Namespace: revision.Namespace}, found); err == nil {
+		// Update the existing Deployment if necessary
+		if *found.Spec.Replicas != revision.Spec.Replicas ||
+			found.Spec.Template.Spec.Containers[0].Image != revision.Spec.Image ||
+			!compareResources(found.Spec.Template.Spec.Containers[0].Resources, revision.Spec.Resources) {
+			found.Spec.Replicas = &revision.Spec.Replicas
+			found.Spec.Template.Spec.Containers[0].Image = revision.Spec.Image
+			found.Spec.Template.Spec.Containers[0].Resources = revision.Spec.Resources
+			// TODO: also do changes for another fields
+
+			err = r.Update(ctx, found)
+			if err != nil {
+				return createNewApp, createNewRevision, err
+			}
+
+			// TODO: set another revision to be inactive and sync to mongodb
+
+			createNewRevision = true
+		}
+	} else {
+		// TODO: remove
+	}
+
+	// TODO: clean
+	return createNewApp, createNewRevision, nil
 }

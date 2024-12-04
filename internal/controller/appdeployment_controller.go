@@ -284,10 +284,12 @@ func handleAppDeploymentChanges(ctx context.Context, r *AppDeploymentReconciler,
 		createNewApp = true
 	} else {
 		// Update the existing Deployment if necessary
-		if *found.Spec.Replicas != appDeploy.Spec.Replicas || found.Spec.Template.Spec.Containers[0].Image != appDeploy.Spec.Image {
+		if *found.Spec.Replicas != appDeploy.Spec.Replicas ||
+			found.Spec.Template.Spec.Containers[0].Image != appDeploy.Spec.Image ||
+			!compareResources(found.Spec.Template.Spec.Containers[0].Resources, appDeploy.Spec.Resources) {
 			found.Spec.Replicas = &appDeploy.Spec.Replicas
 			found.Spec.Template.Spec.Containers[0].Image = appDeploy.Spec.Image
-
+			found.Spec.Template.Spec.Containers[0].Resources = appDeploy.Spec.Resources
 			// TODO: also do changes for another fields
 
 			err = r.Update(ctx, found)
@@ -374,6 +376,11 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 			if err := r.Client.Status().Update(ctx, &revision); err != nil {
 				fmt.Println(fmt.Errorf("failed to update status for revision %s: %w", revision.Name, err))
 			}
+
+			revision.Spec.Status = "Non-active"
+			if err := r.Client.Update(ctx, &revision); err != nil {
+				fmt.Println(fmt.Errorf("failed to update spec status for revision %s: %w", revision.Name, err))
+			}
 		}
 
 		var spec = appDeploy.Spec
@@ -381,6 +388,7 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					"source": "lyrid-operator",
+					"origin": "app-deployment",
 				},
 			},
 			Spec: appsv1alpha1.RevisionSpec{
@@ -396,6 +404,7 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 						"name": appDeploy.Name,
 					},
 				},
+				Status: "Active",
 			},
 		}
 		newRevision.SetName(syncApp.ModuleRevision.Title)
@@ -446,11 +455,10 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 			}
 
 			// delete function, function code, and create new
-
-			if _, err := createFunction(ctx, r, appDeploy, syncApp); err != nil {
-				log.Error(err, "Failed to create function")
-				return ctrl.Result{}, err
-			}
+			// if _, err := createFunction(ctx, r, appDeploy, syncApp); err != nil {
+			// 	log.Error(err, "Failed to create function")
+			// 	return ctrl.Result{}, err
+			// }
 		}
 	} else if appDeploy.Spec.CurrentRevisionId == "" {
 		if _, err := createFunction(ctx, r, appDeploy, syncApp); err != nil {
@@ -505,4 +513,28 @@ func createFunction(ctx context.Context, r *AppDeploymentReconciler, appDeploy a
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func compareResources(current, desired corev1.ResourceRequirements) bool {
+	// Compare CPU requests
+	if current.Requests[corev1.ResourceCPU] != desired.Requests[corev1.ResourceCPU] {
+		return false
+	}
+
+	// Compare memory requests
+	if current.Requests[corev1.ResourceMemory] != desired.Requests[corev1.ResourceMemory] {
+		return false
+	}
+
+	// Compare CPU limits
+	if current.Limits[corev1.ResourceCPU] != desired.Limits[corev1.ResourceCPU] {
+		return false
+	}
+
+	// Compare memory limits
+	if current.Limits[corev1.ResourceMemory] != desired.Limits[corev1.ResourceMemory] {
+		return false
+	}
+
+	return true
 }

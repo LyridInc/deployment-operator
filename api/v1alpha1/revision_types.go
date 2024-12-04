@@ -37,6 +37,7 @@ type RevisionSpec struct {
 	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
 	VolumeMounts []corev1.VolumeMount        `json:"volumeMounts,omitempty"`
 	Ref          AppDeploymentRef            `json:"ref,omitempty"`
+	Status       string                      `json:"status,omitempty"`
 }
 
 // RevisionStatus defines the observed state of Revision
@@ -44,9 +45,10 @@ type RevisionStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Phase      string             `json:"phase"`
-	Message    string             `json:"message,omitempty"`
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	Phase              string             `json:"phase"`
+	Message            string             `json:"message,omitempty"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

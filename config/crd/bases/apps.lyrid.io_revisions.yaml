@@ -153,6 +153,8 @@ spec:
                         type: string
               moduleId:
                 type: string
+              status:
+                type: string
               volumeMounts:
                 items:
                   description: VolumeMount describes a mounting of a Volume within
@@ -202,6 +204,8 @@ spec:
           status:
             type: object
             properties:
+              observedGeneration:
+                type: integer
               phase:
                 type: string
               message:

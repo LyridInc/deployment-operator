@@ -64,9 +64,6 @@ type AppModuleReconciler struct {
 func (r *AppModuleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	// TODO(user): your logic here
-	fmt.Println("------------------------------------- RECONCILE MODULE HERE -------------------------------------")
-
 	accountSecret := &corev1.Secret{}
 	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: "lyrid.secretkey", Namespace: req.Namespace}, accountSecret); err != nil {
 		if errors.IsNotFound(err) {
@@ -75,8 +72,6 @@ func (r *AppModuleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		return ctrl.Result{}, err
 	}
-
-	fmt.Println("Request:", req.Name, req.Namespace)
 
 	appModule := &appsv1alpha1.AppModule{}
 	if err := r.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, appModule); err != nil {
