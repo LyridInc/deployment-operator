@@ -355,111 +355,119 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 	fmt.Println("Current:", appDeploy.Spec.CurrentRevisionId)
 	fmt.Println("New:", syncApp.ModuleRevision.ID)
 
-	if appDeploy.Spec.CurrentRevisionId != syncApp.ModuleRevision.ID {
+	changes, ok := appDeploy.Annotations["changes"]
+	if ok {
+		fmt.Println("Changes:", changes)
+	}
+
+	if appDeploy.Spec.CurrentRevisionId != syncApp.ModuleRevision.ID || changes == "revision-reconciler" {
 		appDeploy.Spec.CurrentRevisionId = syncApp.ModuleRevision.ID
+		appDeploy.Annotations["changes"] = ""
 		if err := r.Update(ctx, &appDeploy); err != nil {
 			log.Error(err, "Failed to update current revision id on app deployment")
 			return ctrl.Result{}, err
 		}
 
 		revisionsList := appsv1alpha1.RevisionList{}
-
 		if err := r.Client.List(ctx, &revisionsList, client.InNamespace(appDeploy.GetNamespace()), client.MatchingFields{
 			".metadata.ownerReferences": string(appDeploy.GetUID()),
 		}); err != nil {
 			fmt.Println(fmt.Errorf("failed to list revisions: %w", err))
 		}
 
-		for _, revision := range revisionsList.Items {
-			revision.Status.Phase = "Non-active"
+		if !ok || changes != "revision-reconciler" {
+			for _, revision := range revisionsList.Items {
+				revision.Status.Phase = "Non-active"
 
-			if err := r.Client.Status().Update(ctx, &revision); err != nil {
-				fmt.Println(fmt.Errorf("failed to update status for revision %s: %w", revision.Name, err))
+				if err := r.Client.Status().Update(ctx, &revision); err != nil {
+					fmt.Println(fmt.Errorf("failed to update status for revision %s: %w", revision.Name, err))
+				}
+
+				revision.Spec.Status = "Non-active"
+				if err := r.Client.Update(ctx, &revision); err != nil {
+					fmt.Println(fmt.Errorf("failed to update spec status for revision %s: %w", revision.Name, err))
+				}
 			}
 
-			revision.Spec.Status = "Non-active"
-			if err := r.Client.Update(ctx, &revision); err != nil {
-				fmt.Println(fmt.Errorf("failed to update spec status for revision %s: %w", revision.Name, err))
-			}
-		}
-
-		var spec = appDeploy.Spec
-		newRevision := &appsv1alpha1.Revision{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					"source": "lyrid-operator",
-					"origin": "app-deployment",
-				},
-			},
-			Spec: appsv1alpha1.RevisionSpec{
-				Id:           syncApp.ModuleRevision.ID,
-				Image:        spec.Image,
-				ModuleId:     syncApp.Module.ID,
-				Ports:        spec.Ports,
-				Replicas:     spec.Replicas,
-				Resources:    spec.Resources,
-				VolumeMounts: spec.VolumeMounts,
-				Ref: appsv1alpha1.AppDeploymentRef{
-					AppDeployment: map[string]string{
-						"name": appDeploy.Name,
+			var spec = appDeploy.Spec
+			newRevision := &appsv1alpha1.Revision{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"source": "lyrid-operator",
+						"origin": "app-deployment",
 					},
 				},
-				Status: "Active",
-			},
-		}
-		newRevision.SetName(syncApp.ModuleRevision.Title)
-		newRevision.SetNamespace(appDeploy.Namespace)
+				Spec: appsv1alpha1.RevisionSpec{
+					Id:           syncApp.ModuleRevision.ID,
+					Image:        spec.Image,
+					ModuleId:     syncApp.Module.ID,
+					Ports:        spec.Ports,
+					Replicas:     spec.Replicas,
+					Resources:    spec.Resources,
+					VolumeMounts: spec.VolumeMounts,
+					Ref: appsv1alpha1.AppDeploymentRef{
+						AppDeployment: map[string]string{
+							"name": appDeploy.Name,
+						},
+					},
+					Status: "Active",
+				},
+			}
+			newRevision.SetName(syncApp.ModuleRevision.Title)
+			newRevision.SetNamespace(appDeploy.Namespace)
 
-		if err := controllerutil.SetControllerReference(
-			&appDeploy,
-			newRevision,
-			r.Scheme); err != nil {
-			return ctrl.Result{}, err
-		}
+			if err := controllerutil.SetControllerReference(
+				&appDeploy,
+				newRevision,
+				r.Scheme); err != nil {
+				return ctrl.Result{}, err
+			}
 
-		// Create the instance if it does not exist
-		if err := r.Client.Create(ctx, newRevision); err != nil {
-			if !errors.IsAlreadyExists(err) {
+			// Create the instance if it does not exist
+			if err := r.Client.Create(ctx, newRevision); err != nil {
+				if !errors.IsAlreadyExists(err) {
+					log.Error(err, "Failed to create new Revision instance")
+					return ctrl.Result{}, err
+				}
 				log.Error(err, "Failed to create new Revision instance")
 				return ctrl.Result{}, err
 			}
-			log.Error(err, "Failed to create new Revision instance")
-			return ctrl.Result{}, err
-		}
 
-		newRevision.Status.Phase = "Active"
-		newRevision.Status.Message = "Revision is up and running"
-		newRevision.Status.Conditions = []metav1.Condition{
-			{
-				LastTransitionTime: metav1.Now(),
-				Message:            newRevision.Status.Message,
-				Type:               newRevision.Status.Phase,
-				Status:             "true",
-			},
-		}
-		if err := r.Status().Update(ctx, newRevision); err != nil {
-			log.Error(err, "Failed to update status")
-			return ctrl.Result{}, err
-		}
-
-		revisionsCount := len(revisionsList.Items)
-		if revisionsCount >= 3 {
-			sort.Slice(revisionsList.Items, func(i, j int) bool {
-				return revisionsList.Items[i].CreationTimestamp.After(revisionsList.Items[j].CreationTimestamp.Time)
-			})
-
-			deletedRevision := revisionsList.Items[revisionsCount-1]
-
-			if err := r.Client.Delete(ctx, &deletedRevision); err != nil {
-				fmt.Println(fmt.Errorf("failed to delete revision %s: %w", deletedRevision.Name, err))
-			}
-
-			// delete function, function code, and create new
-			// if _, err := createFunction(ctx, r, appDeploy, syncApp); err != nil {
-			// 	log.Error(err, "Failed to create function")
+			// newRevision.Status.Phase = "Active"
+			// newRevision.Status.Message = "Revision is up and running"
+			// newRevision.Status.Conditions = []metav1.Condition{
+			// 	{
+			// 		LastTransitionTime: metav1.Now(),
+			// 		Message:            newRevision.Status.Message,
+			// 		Type:               newRevision.Status.Phase,
+			// 		Status:             "true",
+			// 	},
+			// }
+			// if err := r.Status().Update(ctx, newRevision); err != nil {
+			// 	log.Error(err, "Failed to update status")
 			// 	return ctrl.Result{}, err
 			// }
+
+			revisionsCount := len(revisionsList.Items)
+			if revisionsCount >= 3 {
+				sort.Slice(revisionsList.Items, func(i, j int) bool {
+					return revisionsList.Items[i].CreationTimestamp.After(revisionsList.Items[j].CreationTimestamp.Time)
+				})
+
+				deletedRevision := revisionsList.Items[revisionsCount-1]
+
+				if err := r.Client.Delete(ctx, &deletedRevision); err != nil {
+					fmt.Println(fmt.Errorf("failed to delete revision %s: %w", deletedRevision.Name, err))
+				}
+
+				// delete function, function code, and create new
+				// if _, err := createFunction(ctx, r, appDeploy, syncApp); err != nil {
+				// 	log.Error(err, "Failed to create function")
+				// 	return ctrl.Result{}, err
+				// }
+			}
 		}
+
 	} else if appDeploy.Spec.CurrentRevisionId == "" {
 		if _, err := createFunction(ctx, r, appDeploy, syncApp); err != nil {
 			log.Error(err, "Failed to create function")

@@ -116,7 +116,9 @@ func (r *RevisionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	fmt.Println("HERE:", revision.Name, revision.Status.Phase)
 	// this assume we switch up the active revision
-	revisionHandleAppDeploymentChanges(ctx, r, *revision)
+	if revision.Spec.Status == "Active" {
+		revisionHandleAppDeploymentChanges(ctx, r, *revision)
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -238,10 +240,53 @@ func revisionHandleAppDeploymentChanges(ctx context.Context, r *RevisionReconcil
 	var createNewRevision bool
 	found := &appsv1.Deployment{}
 	if err := r.Get(ctx, types.NamespacedName{Name: revision.Spec.Ref.AppDeployment["name"], Namespace: revision.Namespace}, found); err == nil {
-		// Update the existing Deployment if necessary
-		if *found.Spec.Replicas != revision.Spec.Replicas ||
-			found.Spec.Template.Spec.Containers[0].Image != revision.Spec.Image ||
-			!compareResources(found.Spec.Template.Spec.Containers[0].Resources, revision.Spec.Resources) {
+
+		if revision.Spec.Status == "Active" {
+			appDeploy := &appsv1alpha1.AppDeployment{}
+			if err := r.Get(ctx, types.NamespacedName{Name: revision.Spec.Ref.AppDeployment["name"], Namespace: revision.Namespace}, appDeploy); err != nil {
+				return false, false, err
+			}
+			appDeploy.Annotations["changes"] = "revision-reconciler"
+			appDeploy.Spec.CurrentRevisionId = revision.Spec.Id
+			if err := r.Client.Update(ctx, appDeploy); err != nil {
+				return false, false, err
+			}
+
+			revisionsList := appsv1alpha1.RevisionList{}
+			if err := r.Client.List(ctx, &revisionsList, client.InNamespace(appDeploy.GetNamespace()), client.MatchingFields{
+				".metadata.ownerReferences": string(appDeploy.GetUID()),
+			}); err != nil {
+				fmt.Println(fmt.Errorf("failed to list revisions: %w", err))
+			}
+
+			for _, rev := range revisionsList.Items {
+				if rev.Spec.Id == revision.Spec.Id {
+					continue
+				}
+				rev.Status.Phase = "Non-active"
+
+				if err := r.Client.Status().Update(ctx, &rev); err != nil {
+					fmt.Println(fmt.Errorf("failed to update status for revision %s: %w", revision.Name, err))
+				}
+
+				rev.Spec.Status = "Non-active"
+				if err := r.Client.Update(ctx, &rev); err != nil {
+					fmt.Println(fmt.Errorf("failed to update spec status for revision %s: %w", revision.Name, err))
+				}
+			}
+
+			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				// Attempt to update
+				revision.Status.Phase = "Active"
+				return r.Status().Update(ctx, &revision)
+			})
+
+			if err != nil {
+				fmt.Println("Failed to update Revision instance after retries:", err)
+				return false, false, err
+			}
+
+			// Update the existing Deployment if necessary
 			found.Spec.Replicas = &revision.Spec.Replicas
 			found.Spec.Template.Spec.Containers[0].Image = revision.Spec.Image
 			found.Spec.Template.Spec.Containers[0].Resources = revision.Spec.Resources
@@ -256,6 +301,7 @@ func revisionHandleAppDeploymentChanges(ctx context.Context, r *RevisionReconcil
 
 			createNewRevision = true
 		}
+
 	} else {
 		// TODO: remove
 	}
