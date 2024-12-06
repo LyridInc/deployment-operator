@@ -362,10 +362,11 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 
 	if appDeploy.Spec.CurrentRevisionId != syncApp.ModuleRevision.ID || changes == "revision-reconciler" {
 		appDeploy.Spec.CurrentRevisionId = syncApp.ModuleRevision.ID
-		appDeploy.Annotations["changes"] = ""
+		if changes != "" {
+			appDeploy.Annotations["changes"] = ""
+		}
 		if err := r.Update(ctx, &appDeploy); err != nil {
 			log.Error(err, "Failed to update current revision id on app deployment")
-			return ctrl.Result{}, err
 		}
 
 		revisionsList := appsv1alpha1.RevisionList{}
@@ -433,20 +434,21 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 				return ctrl.Result{}, err
 			}
 
-			// newRevision.Status.Phase = "Active"
-			// newRevision.Status.Message = "Revision is up and running"
-			// newRevision.Status.Conditions = []metav1.Condition{
-			// 	{
-			// 		LastTransitionTime: metav1.Now(),
-			// 		Message:            newRevision.Status.Message,
-			// 		Type:               newRevision.Status.Phase,
-			// 		Status:             "true",
-			// 	},
-			// }
-			// if err := r.Status().Update(ctx, newRevision); err != nil {
-			// 	log.Error(err, "Failed to update status")
-			// 	return ctrl.Result{}, err
-			// }
+			// defer func() {
+			// 	newRevision.Status.Phase = "Active"
+			// 	newRevision.Status.Message = "Revision is up and running"
+			// 	newRevision.Status.Conditions = []metav1.Condition{
+			// 		{
+			// 			LastTransitionTime: metav1.Now(),
+			// 			Message:            newRevision.Status.Message,
+			// 			Type:               newRevision.Status.Phase,
+			// 			Status:             "true",
+			// 		},
+			// 	}
+			// 	if err := r.Status().Update(ctx, newRevision); err != nil {
+			// 		log.Error(err, "Failed to update status")
+			// 	}
+			// }()
 
 			revisionsCount := len(revisionsList.Items)
 			if revisionsCount >= 3 {

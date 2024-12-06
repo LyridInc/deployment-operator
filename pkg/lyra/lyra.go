@@ -278,6 +278,41 @@ func (c *LyraClient) SyncModule(appDeployment appsv1alpha1.AppDeployment, appMod
 	return &syncModuleResponse, nil
 }
 
+func (c *LyraClient) SyncRevision(revision appsv1alpha1.Revision, accessKey, accessSecret string) (*lyrmodel.SyncModuleResponse, error) {
+
+	requestBody := lyrmodel.SyncRevisionRequest{
+		ActiveRevisionId: revision.Spec.Id,
+	}
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		fmt.Println("Error encoding JSON:", err)
+		return nil, err
+	}
+
+	token := c.GetCachedTokenByNamespace(revision.Namespace)
+	if token == nil {
+		respToken, err := c.Authenticate(accessKey, accessSecret)
+		if err != nil {
+			return nil, err
+		}
+		token = &respToken.Token
+	}
+
+	resp, err := c.DoLyraHttpRequest("POST", "/operator/app/sync/revision", *token, jsonData)
+	if err != nil {
+		fmt.Println("Error http request:", err)
+		return nil, err
+	}
+
+	syncModuleResponse := lyrmodel.SyncModuleResponse{}
+	if err := json.Unmarshal(resp, &syncModuleResponse); err != nil {
+		return nil, err
+	}
+
+	return &syncModuleResponse, nil
+}
+
 func (c *LyraClient) DeleteApp(appDeployment appsv1alpha1.AppDeployment, accessKey, accessSecret string) (*lyrmodel.SyncAppResponse, error) {
 	requestBody := lyrmodel.SyncAppRequest{
 		AppName:                  appDeployment.Name,

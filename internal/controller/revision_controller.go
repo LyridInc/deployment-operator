@@ -35,6 +35,7 @@ import (
 
 	lyrmodel "github.com/LyridInc/go-sdk/model"
 	appsv1alpha1 "github.com/LyridInc/lyrid-operator/api/v1alpha1"
+	"github.com/LyridInc/lyrid-operator/pkg/lyra"
 )
 
 // RevisionReconciler reconciles a Revision object
@@ -298,6 +299,19 @@ func revisionHandleAppDeploymentChanges(ctx context.Context, r *RevisionReconcil
 			}
 
 			// TODO: set another revision to be inactive and sync to mongodb
+			lyraClient := lyra.NewLyraClient(r.Client, revision.Namespace)
+			accountSecret := &corev1.Secret{}
+			if err := r.Client.Get(context.Background(), types.NamespacedName{Name: "lyrid.secretkey", Namespace: revision.Namespace}, accountSecret); err != nil {
+				if errors.IsNotFound(err) {
+					fmt.Printf("lyrid.secretkey secret is not found in namespace %s\n", revision.Namespace)
+					return createNewApp, createNewRevision, err
+				}
+				return createNewApp, createNewRevision, err
+			}
+			_, err = lyraClient.SyncRevision(revision, string(accountSecret.Data["key"]), string(accountSecret.Data["secret"]))
+			if err != nil {
+				return createNewApp, createNewRevision, err
+			}
 
 			createNewRevision = true
 		}
