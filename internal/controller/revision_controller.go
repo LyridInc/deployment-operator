@@ -73,7 +73,16 @@ func (r *RevisionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	revision := &appsv1alpha1.Revision{}
 	if err := r.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, revision); err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("AppModule is deleted ->")
+			log.Info("Revision is deleted ->")
+			revision.Name = req.Name
+			revision.Namespace = req.Namespace
+			lyraClient := lyra.NewLyraClient(r.Client, revision.Namespace)
+			deleteRevisionResponse, err := lyraClient.DeleteRevision(*revision, string(accountSecret.Data["key"]), string(accountSecret.Data["secret"]))
+			if err != nil {
+				fmt.Println("Response:", deleteRevisionResponse)
+				fmt.Println("Error:", err)
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
