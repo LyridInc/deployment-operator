@@ -100,6 +100,12 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	fmt.Printf("------------------------------------- RECONCILE APPDEPLOYMENT: %s -------------------------------------\n", appDeploy.Name)
+	defer func() {
+		fmt.Printf("------------------------------------- RECONCILE APPDEPLOYMENT: %s FINISHED ------------------------------------\n", appDeploy.Name)
+	}()
+
+	fmt.Println("Current AppDeploy revision id:", appDeploy.Spec.CurrentRevisionId)
 	isCreateNewAppModule, isCreateNewRevision, _ := handleAppDeploymentChanges(ctx, r, *appDeploy)
 	if isCreateNewRevision {
 		appDeploy.Spec.CurrentRevisionId = "" // empty the revision id so that it will trigger new revision creation
@@ -352,6 +358,7 @@ func handleServiceChanges(ctx context.Context, r *AppDeploymentReconciler, appDe
 func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appDeploy appsv1alpha1.AppDeployment, syncApp lyrmodel.SyncAppResponse) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
+	fmt.Println("App Deploy:", appDeploy.Name)
 	fmt.Println("Current:", appDeploy.Spec.CurrentRevisionId)
 	fmt.Println("New:", syncApp.ModuleRevision.ID)
 
@@ -364,19 +371,20 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 		appDeploy.Spec.CurrentRevisionId = syncApp.ModuleRevision.ID
 		if changes != "" {
 			appDeploy.Annotations["changes"] = ""
-		}
-		if err := r.Update(ctx, &appDeploy); err != nil {
-			log.Error(err, "Failed to update current revision id on app deployment")
-		}
-
-		revisionsList := appsv1alpha1.RevisionList{}
-		if err := r.Client.List(ctx, &revisionsList, client.InNamespace(appDeploy.GetNamespace()), client.MatchingFields{
-			".metadata.ownerReferences": string(appDeploy.GetUID()),
-		}); err != nil {
-			fmt.Println(fmt.Errorf("failed to list revisions: %w", err))
+			fmt.Printf("AppDeployment -> Emptying app deployment %s annotation changes\n", appDeploy.Name)
+			if err := r.Update(ctx, &appDeploy); err != nil {
+				log.Error(err, "Failed to update current revision id on app deployment")
+			}
 		}
 
 		if !ok || changes != "revision-reconciler" {
+			revisionsList := appsv1alpha1.RevisionList{}
+			if err := r.Client.List(ctx, &revisionsList, client.InNamespace(appDeploy.GetNamespace()), client.MatchingFields{
+				".metadata.ownerReferences": string(appDeploy.GetUID()),
+			}); err != nil {
+				fmt.Println(fmt.Errorf("failed to list revisions: %w", err))
+			}
+
 			for _, revision := range revisionsList.Items {
 				revision.Status.Phase = "Non-active"
 
@@ -425,6 +433,7 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 			}
 
 			// Create the instance if it does not exist
+			fmt.Println("Create new revision with id:", newRevision.Spec.Id)
 			if err := r.Client.Create(ctx, newRevision); err != nil {
 				if !errors.IsAlreadyExists(err) {
 					log.Error(err, "Failed to create new Revision instance")
@@ -433,22 +442,6 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 				log.Error(err, "Failed to create new Revision instance")
 				return ctrl.Result{}, err
 			}
-
-			// defer func() {
-			// 	newRevision.Status.Phase = "Active"
-			// 	newRevision.Status.Message = "Revision is up and running"
-			// 	newRevision.Status.Conditions = []metav1.Condition{
-			// 		{
-			// 			LastTransitionTime: metav1.Now(),
-			// 			Message:            newRevision.Status.Message,
-			// 			Type:               newRevision.Status.Phase,
-			// 			Status:             "true",
-			// 		},
-			// 	}
-			// 	if err := r.Status().Update(ctx, newRevision); err != nil {
-			// 		log.Error(err, "Failed to update status")
-			// 	}
-			// }()
 
 			revisionsCount := len(revisionsList.Items)
 			if revisionsCount >= 3 {
@@ -462,11 +455,6 @@ func handleRevisionChanges(ctx context.Context, r *AppDeploymentReconciler, appD
 					fmt.Println(fmt.Errorf("failed to delete revision %s: %w", deletedRevision.Name, err))
 				}
 
-				// delete function, function code, and create new
-				// if _, err := createFunction(ctx, r, appDeploy, syncApp); err != nil {
-				// 	log.Error(err, "Failed to create function")
-				// 	return ctrl.Result{}, err
-				// }
 			}
 		}
 
