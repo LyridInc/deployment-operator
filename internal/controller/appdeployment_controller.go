@@ -203,7 +203,9 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if syncAppResponse.ModuleRevision.ID != "" {
-		handleRevisionChanges(ctx, r, *appDeploy, *syncAppResponse)
+		defer func() {
+			handleRevisionChanges(ctx, r, *appDeploy, *syncAppResponse)
+		}()
 	}
 
 	if isCreateNewRevision {
