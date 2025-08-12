@@ -68,6 +68,8 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
+env: []
+
 autoscaling:
   enabled: false
   minReplicas: 1
