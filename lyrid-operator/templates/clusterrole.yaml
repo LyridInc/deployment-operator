@@ -4,8 +4,11 @@ metadata:
   name: {{ include "lyrid-operator.fullname" . }}-role
 rules:
   - apiGroups: ["apps.lyrid.io"]
-    resources: ["revisions", "appdeployments"]
-    verbs: ["get", "list", "watch"]
+    resources: ["appdeployments", "appmodules", "deploymentendpoints", "functions", "functioncodes", "revisions", "subdomains"]
+    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
   - apiGroups: [""]
-    resources: ["secrets", "deployments", "configmaps"]
+    resources: ["secrets", "configmaps"]
     verbs: ["get", "list", "watch"]
